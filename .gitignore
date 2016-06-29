@@ -1,0 +1,5 @@
+geetcache
+thriftidl/gen-go
+thriftidl/gen-go/**
+**/tags
+vendor/**

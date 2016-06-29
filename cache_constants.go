@@ -11,5 +11,6 @@ const (
 	LISTTYPE           uint8  = 1
 	PMAPTYPE           uint8  = 2
 	MAPTYPE            uint8  = 3
+	CTRTYPE            uint8  = 4
 	MAX_LOG_BACKUP     int    = 1000
 )

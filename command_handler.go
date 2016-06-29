@@ -12,9 +12,12 @@ type GeetCacheHandler struct {
 }
 
 func registerTypes() {
-	gob.Register(new(ListPutCommand))
-	gob.Register(new(ListGPCommand))
-	gob.Register(new(PutCommand))
+	gob.Register(NewListPutCommand())
+	gob.Register(NewListGPCommand())
+	gob.Register(NewPutCommand())
+	gob.Register(NewCAddCommand())
+	gob.Register(NewCASCommand())
+	gob.Register(NewCChangeCommand())
 }
 
 func NewGeetCacheHandler() (*GeetCacheHandler, error) {
@@ -95,7 +98,7 @@ func (gch *GeetCacheHandler) Put(data *PutCommand) (Status, error) {
 		return Status_FAILURE, err
 	}
 	applr := gch.rft.Apply(sbnl, 0)
-	LOG.Debugf("Put apply response %s\n", *applr)
+	LOG.Debugf("Put apply response %s", *applr)
 	return applr.status, nil
 }
 
@@ -149,6 +152,11 @@ func (gch *GeetCacheHandler) ListGet(command *ListGPCommand) (*ListGPResponse, e
 		Retlen: int32(len(lst)), Values: lst}, nil
 }
 
+func (gch *GeetCacheHandler) ListLen(key string) (*ListLenResponse, error) {
+	len, status := gch.parts.list_len(key)
+	return &ListLenResponse{ListKey: key, Stat: status, LLen: len}, nil
+}
+
 func (gch *GeetCacheHandler) Delete(key string) (*DelResponse, error) {
 	applret, _ := gch.mutate(DELETE, key)
 	dr := NewDelResponse()
@@ -163,4 +171,78 @@ func (gch *GeetCacheHandler) DeleteList(key string) (*DelResponse, error) {
 	dr.Stat = applret.status
 	dr.Key = key
 	return dr, nil
+}
+
+func (gch *GeetCacheHandler) AddCounter(counter *CAddCommand) (Status, error) {
+	bnl := newBinLog(ADD_COUNTER, counter)
+	sbnl, err := bnl.serialize()
+	if err != nil {
+		LOG.Errorf("add counter %s: %s", counter.Name, err)
+	}
+	applr := gch.rft.Apply(sbnl, 0)
+	if applr.status != Status_SUCCESS {
+		LOG.Errorf("Add counter:%s, %s", counter.Name, applr.status)
+	}
+	return applr.status, nil
+}
+
+func (gch *GeetCacheHandler) DeleteCounter(counterName string) (Status, error) {
+	bnl := newBinLog(DEL_COUNTER, counterName)
+	sbnl, err := bnl.serialize()
+	if err != nil {
+		LOG.Errorf("Delete counter %s: %s", counterName, err)
+	}
+	applr := gch.rft.Apply(sbnl, 0)
+	if applr.status != Status_SUCCESS {
+		LOG.Errorf("Delete counter:%s, %s ", counterName, applr.status)
+	}
+	return applr.status, nil
+}
+
+func (gch *GeetCacheHandler) incrOrdecr(counter *CChangeCommand,
+	command_code uint32) (*CStatus, error) {
+	bnl := newBinLog(command_code, counter)
+	sbnl, err := bnl.serialize()
+	if err != nil {
+		LOG.Errorf("changing counter %s: %s", counter.Name, err)
+	}
+	applr := gch.rft.Apply(sbnl, 0)
+	if applr.status != Status_SUCCESS {
+		LOG.Errorf("changing counter:%s, %s", counter.Name, applr.status)
+	}
+	cs := NewCStatus()
+	cs.Name = counter.Name
+	cs.Stat = applr.status
+	cs.Value = applr.resp.(int64)
+	return cs, nil
+}
+
+func (gch *GeetCacheHandler) Increament(counter *CChangeCommand) (*CStatus, error) {
+	return gch.incrOrdecr(counter, INCR_COUNTER)
+}
+
+func (gch *GeetCacheHandler) Decrement(counter *CChangeCommand) (*CStatus, error) {
+	return gch.incrOrdecr(counter, DECR_COUNTER)
+}
+
+func (gch *GeetCacheHandler) CompSwap(cas *CASCommand) (Status, error) {
+	bnl := newBinLog(CAS_COUNTER, cas)
+	sbnl, err := bnl.serialize()
+	if err != nil {
+		LOG.Errorf("CAS counter %s: %s", cas.Name, err)
+	}
+	applr := gch.rft.Apply(sbnl, 0)
+	if applr.status != Status_SUCCESS {
+		LOG.Errorf("CAS counter:%s, %s ", cas.Name, applr.status)
+	}
+	return applr.status, nil
+}
+
+func (gch *GeetCacheHandler) GetCounterValue(counterName string) (*CStatus, error) {
+	status, val := gch.parts.get_counter_value(counterName)
+	cs := NewCStatus()
+	cs.Stat = status
+	cs.Name = counterName
+	cs.Value = val
+	return cs, nil
 }

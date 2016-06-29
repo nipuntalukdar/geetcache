@@ -29,6 +29,9 @@ type GeetcacheService interface {
 	ListGet(lGet *ListGPCommand) (r *ListGPResponse, err error)
 	// Parameters:
 	//  - Key
+	ListLen(key string) (r *ListLenResponse, err error)
+	// Parameters:
+	//  - Key
 	Get(key string) (r *GetResponse, err error)
 	// Parameters:
 	//  - Key
@@ -38,6 +41,24 @@ type GeetcacheService interface {
 	DeleteList(key string) (r *DelResponse, err error)
 	Leader() (r *LeaderResponse, err error)
 	Peers() (r *PeersResponse, err error)
+	// Parameters:
+	//  - Counter
+	AddCounter(counter *CAddCommand) (r Status, err error)
+	// Parameters:
+	//  - CounterName
+	DeleteCounter(counterName string) (r Status, err error)
+	// Parameters:
+	//  - Counter
+	Increament(counter *CChangeCommand) (r *CStatus, err error)
+	// Parameters:
+	//  - Counter
+	Decrement(counter *CChangeCommand) (r *CStatus, err error)
+	// Parameters:
+	//  - CounterName
+	GetCounterValue(counterName string) (r *CStatus, err error)
+	// Parameters:
+	//  - Cas
+	CompSwap(cas *CASCommand) (r Status, err error)
 }
 
 type GeetcacheServiceClient struct {
@@ -376,6 +397,83 @@ func (p *GeetcacheServiceClient) recvListGet() (value *ListGPResponse, err error
 
 // Parameters:
 //  - Key
+func (p *GeetcacheServiceClient) ListLen(key string) (r *ListLenResponse, err error) {
+	if err = p.sendListLen(key); err != nil {
+		return
+	}
+	return p.recvListLen()
+}
+
+func (p *GeetcacheServiceClient) sendListLen(key string) (err error) {
+	oprot := p.OutputProtocol
+	if oprot == nil {
+		oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.OutputProtocol = oprot
+	}
+	p.SeqId++
+	if err = oprot.WriteMessageBegin("ListLen", thrift.CALL, p.SeqId); err != nil {
+		return
+	}
+	args := GeetcacheServiceListLenArgs{
+		Key: key,
+	}
+	if err = args.Write(oprot); err != nil {
+		return
+	}
+	if err = oprot.WriteMessageEnd(); err != nil {
+		return
+	}
+	return oprot.Flush()
+}
+
+func (p *GeetcacheServiceClient) recvListLen() (value *ListLenResponse, err error) {
+	iprot := p.InputProtocol
+	if iprot == nil {
+		iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.InputProtocol = iprot
+	}
+	method, mTypeId, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return
+	}
+	if method != "ListLen" {
+		err = thrift.NewTApplicationException(thrift.WRONG_METHOD_NAME, "ListLen failed: wrong method name")
+		return
+	}
+	if p.SeqId != seqId {
+		err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "ListLen failed: out of sequence response")
+		return
+	}
+	if mTypeId == thrift.EXCEPTION {
+		error11 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error12 error
+		error12, err = error11.Read(iprot)
+		if err != nil {
+			return
+		}
+		if err = iprot.ReadMessageEnd(); err != nil {
+			return
+		}
+		err = error12
+		return
+	}
+	if mTypeId != thrift.REPLY {
+		err = thrift.NewTApplicationException(thrift.INVALID_MESSAGE_TYPE_EXCEPTION, "ListLen failed: invalid message type")
+		return
+	}
+	result := GeetcacheServiceListLenResult{}
+	if err = result.Read(iprot); err != nil {
+		return
+	}
+	if err = iprot.ReadMessageEnd(); err != nil {
+		return
+	}
+	value = result.GetSuccess()
+	return
+}
+
+// Parameters:
+//  - Key
 func (p *GeetcacheServiceClient) Get(key string) (r *GetResponse, err error) {
 	if err = p.sendGet(key); err != nil {
 		return
@@ -424,16 +522,16 @@ func (p *GeetcacheServiceClient) recvGet() (value *GetResponse, err error) {
 		return
 	}
 	if mTypeId == thrift.EXCEPTION {
-		error11 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
-		var error12 error
-		error12, err = error11.Read(iprot)
+		error13 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error14 error
+		error14, err = error13.Read(iprot)
 		if err != nil {
 			return
 		}
 		if err = iprot.ReadMessageEnd(); err != nil {
 			return
 		}
-		err = error12
+		err = error14
 		return
 	}
 	if mTypeId != thrift.REPLY {
@@ -501,16 +599,16 @@ func (p *GeetcacheServiceClient) recvDelete() (value *DelResponse, err error) {
 		return
 	}
 	if mTypeId == thrift.EXCEPTION {
-		error13 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
-		var error14 error
-		error14, err = error13.Read(iprot)
+		error15 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error16 error
+		error16, err = error15.Read(iprot)
 		if err != nil {
 			return
 		}
 		if err = iprot.ReadMessageEnd(); err != nil {
 			return
 		}
-		err = error14
+		err = error16
 		return
 	}
 	if mTypeId != thrift.REPLY {
@@ -578,16 +676,16 @@ func (p *GeetcacheServiceClient) recvDeleteList() (value *DelResponse, err error
 		return
 	}
 	if mTypeId == thrift.EXCEPTION {
-		error15 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
-		var error16 error
-		error16, err = error15.Read(iprot)
+		error17 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error18 error
+		error18, err = error17.Read(iprot)
 		if err != nil {
 			return
 		}
 		if err = iprot.ReadMessageEnd(); err != nil {
 			return
 		}
-		err = error16
+		err = error18
 		return
 	}
 	if mTypeId != thrift.REPLY {
@@ -651,16 +749,16 @@ func (p *GeetcacheServiceClient) recvLeader() (value *LeaderResponse, err error)
 		return
 	}
 	if mTypeId == thrift.EXCEPTION {
-		error17 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
-		var error18 error
-		error18, err = error17.Read(iprot)
+		error19 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error20 error
+		error20, err = error19.Read(iprot)
 		if err != nil {
 			return
 		}
 		if err = iprot.ReadMessageEnd(); err != nil {
 			return
 		}
-		err = error18
+		err = error20
 		return
 	}
 	if mTypeId != thrift.REPLY {
@@ -724,16 +822,16 @@ func (p *GeetcacheServiceClient) recvPeers() (value *PeersResponse, err error) {
 		return
 	}
 	if mTypeId == thrift.EXCEPTION {
-		error19 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
-		var error20 error
-		error20, err = error19.Read(iprot)
+		error21 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error22 error
+		error22, err = error21.Read(iprot)
 		if err != nil {
 			return
 		}
 		if err = iprot.ReadMessageEnd(); err != nil {
 			return
 		}
-		err = error20
+		err = error22
 		return
 	}
 	if mTypeId != thrift.REPLY {
@@ -741,6 +839,468 @@ func (p *GeetcacheServiceClient) recvPeers() (value *PeersResponse, err error) {
 		return
 	}
 	result := GeetcacheServicePeersResult{}
+	if err = result.Read(iprot); err != nil {
+		return
+	}
+	if err = iprot.ReadMessageEnd(); err != nil {
+		return
+	}
+	value = result.GetSuccess()
+	return
+}
+
+// Parameters:
+//  - Counter
+func (p *GeetcacheServiceClient) AddCounter(counter *CAddCommand) (r Status, err error) {
+	if err = p.sendAddCounter(counter); err != nil {
+		return
+	}
+	return p.recvAddCounter()
+}
+
+func (p *GeetcacheServiceClient) sendAddCounter(counter *CAddCommand) (err error) {
+	oprot := p.OutputProtocol
+	if oprot == nil {
+		oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.OutputProtocol = oprot
+	}
+	p.SeqId++
+	if err = oprot.WriteMessageBegin("AddCounter", thrift.CALL, p.SeqId); err != nil {
+		return
+	}
+	args := GeetcacheServiceAddCounterArgs{
+		Counter: counter,
+	}
+	if err = args.Write(oprot); err != nil {
+		return
+	}
+	if err = oprot.WriteMessageEnd(); err != nil {
+		return
+	}
+	return oprot.Flush()
+}
+
+func (p *GeetcacheServiceClient) recvAddCounter() (value Status, err error) {
+	iprot := p.InputProtocol
+	if iprot == nil {
+		iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.InputProtocol = iprot
+	}
+	method, mTypeId, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return
+	}
+	if method != "AddCounter" {
+		err = thrift.NewTApplicationException(thrift.WRONG_METHOD_NAME, "AddCounter failed: wrong method name")
+		return
+	}
+	if p.SeqId != seqId {
+		err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "AddCounter failed: out of sequence response")
+		return
+	}
+	if mTypeId == thrift.EXCEPTION {
+		error23 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error24 error
+		error24, err = error23.Read(iprot)
+		if err != nil {
+			return
+		}
+		if err = iprot.ReadMessageEnd(); err != nil {
+			return
+		}
+		err = error24
+		return
+	}
+	if mTypeId != thrift.REPLY {
+		err = thrift.NewTApplicationException(thrift.INVALID_MESSAGE_TYPE_EXCEPTION, "AddCounter failed: invalid message type")
+		return
+	}
+	result := GeetcacheServiceAddCounterResult{}
+	if err = result.Read(iprot); err != nil {
+		return
+	}
+	if err = iprot.ReadMessageEnd(); err != nil {
+		return
+	}
+	value = result.GetSuccess()
+	return
+}
+
+// Parameters:
+//  - CounterName
+func (p *GeetcacheServiceClient) DeleteCounter(counterName string) (r Status, err error) {
+	if err = p.sendDeleteCounter(counterName); err != nil {
+		return
+	}
+	return p.recvDeleteCounter()
+}
+
+func (p *GeetcacheServiceClient) sendDeleteCounter(counterName string) (err error) {
+	oprot := p.OutputProtocol
+	if oprot == nil {
+		oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.OutputProtocol = oprot
+	}
+	p.SeqId++
+	if err = oprot.WriteMessageBegin("DeleteCounter", thrift.CALL, p.SeqId); err != nil {
+		return
+	}
+	args := GeetcacheServiceDeleteCounterArgs{
+		CounterName: counterName,
+	}
+	if err = args.Write(oprot); err != nil {
+		return
+	}
+	if err = oprot.WriteMessageEnd(); err != nil {
+		return
+	}
+	return oprot.Flush()
+}
+
+func (p *GeetcacheServiceClient) recvDeleteCounter() (value Status, err error) {
+	iprot := p.InputProtocol
+	if iprot == nil {
+		iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.InputProtocol = iprot
+	}
+	method, mTypeId, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return
+	}
+	if method != "DeleteCounter" {
+		err = thrift.NewTApplicationException(thrift.WRONG_METHOD_NAME, "DeleteCounter failed: wrong method name")
+		return
+	}
+	if p.SeqId != seqId {
+		err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "DeleteCounter failed: out of sequence response")
+		return
+	}
+	if mTypeId == thrift.EXCEPTION {
+		error25 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error26 error
+		error26, err = error25.Read(iprot)
+		if err != nil {
+			return
+		}
+		if err = iprot.ReadMessageEnd(); err != nil {
+			return
+		}
+		err = error26
+		return
+	}
+	if mTypeId != thrift.REPLY {
+		err = thrift.NewTApplicationException(thrift.INVALID_MESSAGE_TYPE_EXCEPTION, "DeleteCounter failed: invalid message type")
+		return
+	}
+	result := GeetcacheServiceDeleteCounterResult{}
+	if err = result.Read(iprot); err != nil {
+		return
+	}
+	if err = iprot.ReadMessageEnd(); err != nil {
+		return
+	}
+	value = result.GetSuccess()
+	return
+}
+
+// Parameters:
+//  - Counter
+func (p *GeetcacheServiceClient) Increament(counter *CChangeCommand) (r *CStatus, err error) {
+	if err = p.sendIncreament(counter); err != nil {
+		return
+	}
+	return p.recvIncreament()
+}
+
+func (p *GeetcacheServiceClient) sendIncreament(counter *CChangeCommand) (err error) {
+	oprot := p.OutputProtocol
+	if oprot == nil {
+		oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.OutputProtocol = oprot
+	}
+	p.SeqId++
+	if err = oprot.WriteMessageBegin("Increament", thrift.CALL, p.SeqId); err != nil {
+		return
+	}
+	args := GeetcacheServiceIncreamentArgs{
+		Counter: counter,
+	}
+	if err = args.Write(oprot); err != nil {
+		return
+	}
+	if err = oprot.WriteMessageEnd(); err != nil {
+		return
+	}
+	return oprot.Flush()
+}
+
+func (p *GeetcacheServiceClient) recvIncreament() (value *CStatus, err error) {
+	iprot := p.InputProtocol
+	if iprot == nil {
+		iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.InputProtocol = iprot
+	}
+	method, mTypeId, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return
+	}
+	if method != "Increament" {
+		err = thrift.NewTApplicationException(thrift.WRONG_METHOD_NAME, "Increament failed: wrong method name")
+		return
+	}
+	if p.SeqId != seqId {
+		err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "Increament failed: out of sequence response")
+		return
+	}
+	if mTypeId == thrift.EXCEPTION {
+		error27 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error28 error
+		error28, err = error27.Read(iprot)
+		if err != nil {
+			return
+		}
+		if err = iprot.ReadMessageEnd(); err != nil {
+			return
+		}
+		err = error28
+		return
+	}
+	if mTypeId != thrift.REPLY {
+		err = thrift.NewTApplicationException(thrift.INVALID_MESSAGE_TYPE_EXCEPTION, "Increament failed: invalid message type")
+		return
+	}
+	result := GeetcacheServiceIncreamentResult{}
+	if err = result.Read(iprot); err != nil {
+		return
+	}
+	if err = iprot.ReadMessageEnd(); err != nil {
+		return
+	}
+	value = result.GetSuccess()
+	return
+}
+
+// Parameters:
+//  - Counter
+func (p *GeetcacheServiceClient) Decrement(counter *CChangeCommand) (r *CStatus, err error) {
+	if err = p.sendDecrement(counter); err != nil {
+		return
+	}
+	return p.recvDecrement()
+}
+
+func (p *GeetcacheServiceClient) sendDecrement(counter *CChangeCommand) (err error) {
+	oprot := p.OutputProtocol
+	if oprot == nil {
+		oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.OutputProtocol = oprot
+	}
+	p.SeqId++
+	if err = oprot.WriteMessageBegin("Decrement", thrift.CALL, p.SeqId); err != nil {
+		return
+	}
+	args := GeetcacheServiceDecrementArgs{
+		Counter: counter,
+	}
+	if err = args.Write(oprot); err != nil {
+		return
+	}
+	if err = oprot.WriteMessageEnd(); err != nil {
+		return
+	}
+	return oprot.Flush()
+}
+
+func (p *GeetcacheServiceClient) recvDecrement() (value *CStatus, err error) {
+	iprot := p.InputProtocol
+	if iprot == nil {
+		iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.InputProtocol = iprot
+	}
+	method, mTypeId, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return
+	}
+	if method != "Decrement" {
+		err = thrift.NewTApplicationException(thrift.WRONG_METHOD_NAME, "Decrement failed: wrong method name")
+		return
+	}
+	if p.SeqId != seqId {
+		err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "Decrement failed: out of sequence response")
+		return
+	}
+	if mTypeId == thrift.EXCEPTION {
+		error29 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error30 error
+		error30, err = error29.Read(iprot)
+		if err != nil {
+			return
+		}
+		if err = iprot.ReadMessageEnd(); err != nil {
+			return
+		}
+		err = error30
+		return
+	}
+	if mTypeId != thrift.REPLY {
+		err = thrift.NewTApplicationException(thrift.INVALID_MESSAGE_TYPE_EXCEPTION, "Decrement failed: invalid message type")
+		return
+	}
+	result := GeetcacheServiceDecrementResult{}
+	if err = result.Read(iprot); err != nil {
+		return
+	}
+	if err = iprot.ReadMessageEnd(); err != nil {
+		return
+	}
+	value = result.GetSuccess()
+	return
+}
+
+// Parameters:
+//  - CounterName
+func (p *GeetcacheServiceClient) GetCounterValue(counterName string) (r *CStatus, err error) {
+	if err = p.sendGetCounterValue(counterName); err != nil {
+		return
+	}
+	return p.recvGetCounterValue()
+}
+
+func (p *GeetcacheServiceClient) sendGetCounterValue(counterName string) (err error) {
+	oprot := p.OutputProtocol
+	if oprot == nil {
+		oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.OutputProtocol = oprot
+	}
+	p.SeqId++
+	if err = oprot.WriteMessageBegin("GetCounterValue", thrift.CALL, p.SeqId); err != nil {
+		return
+	}
+	args := GeetcacheServiceGetCounterValueArgs{
+		CounterName: counterName,
+	}
+	if err = args.Write(oprot); err != nil {
+		return
+	}
+	if err = oprot.WriteMessageEnd(); err != nil {
+		return
+	}
+	return oprot.Flush()
+}
+
+func (p *GeetcacheServiceClient) recvGetCounterValue() (value *CStatus, err error) {
+	iprot := p.InputProtocol
+	if iprot == nil {
+		iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.InputProtocol = iprot
+	}
+	method, mTypeId, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return
+	}
+	if method != "GetCounterValue" {
+		err = thrift.NewTApplicationException(thrift.WRONG_METHOD_NAME, "GetCounterValue failed: wrong method name")
+		return
+	}
+	if p.SeqId != seqId {
+		err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "GetCounterValue failed: out of sequence response")
+		return
+	}
+	if mTypeId == thrift.EXCEPTION {
+		error31 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error32 error
+		error32, err = error31.Read(iprot)
+		if err != nil {
+			return
+		}
+		if err = iprot.ReadMessageEnd(); err != nil {
+			return
+		}
+		err = error32
+		return
+	}
+	if mTypeId != thrift.REPLY {
+		err = thrift.NewTApplicationException(thrift.INVALID_MESSAGE_TYPE_EXCEPTION, "GetCounterValue failed: invalid message type")
+		return
+	}
+	result := GeetcacheServiceGetCounterValueResult{}
+	if err = result.Read(iprot); err != nil {
+		return
+	}
+	if err = iprot.ReadMessageEnd(); err != nil {
+		return
+	}
+	value = result.GetSuccess()
+	return
+}
+
+// Parameters:
+//  - Cas
+func (p *GeetcacheServiceClient) CompSwap(cas *CASCommand) (r Status, err error) {
+	if err = p.sendCompSwap(cas); err != nil {
+		return
+	}
+	return p.recvCompSwap()
+}
+
+func (p *GeetcacheServiceClient) sendCompSwap(cas *CASCommand) (err error) {
+	oprot := p.OutputProtocol
+	if oprot == nil {
+		oprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.OutputProtocol = oprot
+	}
+	p.SeqId++
+	if err = oprot.WriteMessageBegin("CompSwap", thrift.CALL, p.SeqId); err != nil {
+		return
+	}
+	args := GeetcacheServiceCompSwapArgs{
+		Cas: cas,
+	}
+	if err = args.Write(oprot); err != nil {
+		return
+	}
+	if err = oprot.WriteMessageEnd(); err != nil {
+		return
+	}
+	return oprot.Flush()
+}
+
+func (p *GeetcacheServiceClient) recvCompSwap() (value Status, err error) {
+	iprot := p.InputProtocol
+	if iprot == nil {
+		iprot = p.ProtocolFactory.GetProtocol(p.Transport)
+		p.InputProtocol = iprot
+	}
+	method, mTypeId, seqId, err := iprot.ReadMessageBegin()
+	if err != nil {
+		return
+	}
+	if method != "CompSwap" {
+		err = thrift.NewTApplicationException(thrift.WRONG_METHOD_NAME, "CompSwap failed: wrong method name")
+		return
+	}
+	if p.SeqId != seqId {
+		err = thrift.NewTApplicationException(thrift.BAD_SEQUENCE_ID, "CompSwap failed: out of sequence response")
+		return
+	}
+	if mTypeId == thrift.EXCEPTION {
+		error33 := thrift.NewTApplicationException(thrift.UNKNOWN_APPLICATION_EXCEPTION, "Unknown Exception")
+		var error34 error
+		error34, err = error33.Read(iprot)
+		if err != nil {
+			return
+		}
+		if err = iprot.ReadMessageEnd(); err != nil {
+			return
+		}
+		err = error34
+		return
+	}
+	if mTypeId != thrift.REPLY {
+		err = thrift.NewTApplicationException(thrift.INVALID_MESSAGE_TYPE_EXCEPTION, "CompSwap failed: invalid message type")
+		return
+	}
+	result := GeetcacheServiceCompSwapResult{}
 	if err = result.Read(iprot); err != nil {
 		return
 	}
@@ -771,17 +1331,24 @@ func (p *GeetcacheServiceProcessor) ProcessorMap() map[string]thrift.TProcessorF
 
 func NewGeetcacheServiceProcessor(handler GeetcacheService) *GeetcacheServiceProcessor {
 
-	self21 := &GeetcacheServiceProcessor{handler: handler, processorMap: make(map[string]thrift.TProcessorFunction)}
-	self21.processorMap["Put"] = &geetcacheServiceProcessorPut{handler: handler}
-	self21.processorMap["ListPut"] = &geetcacheServiceProcessorListPut{handler: handler}
-	self21.processorMap["ListPop"] = &geetcacheServiceProcessorListPop{handler: handler}
-	self21.processorMap["ListGet"] = &geetcacheServiceProcessorListGet{handler: handler}
-	self21.processorMap["Get"] = &geetcacheServiceProcessorGet{handler: handler}
-	self21.processorMap["Delete"] = &geetcacheServiceProcessorDelete{handler: handler}
-	self21.processorMap["DeleteList"] = &geetcacheServiceProcessorDeleteList{handler: handler}
-	self21.processorMap["Leader"] = &geetcacheServiceProcessorLeader{handler: handler}
-	self21.processorMap["Peers"] = &geetcacheServiceProcessorPeers{handler: handler}
-	return self21
+	self35 := &GeetcacheServiceProcessor{handler: handler, processorMap: make(map[string]thrift.TProcessorFunction)}
+	self35.processorMap["Put"] = &geetcacheServiceProcessorPut{handler: handler}
+	self35.processorMap["ListPut"] = &geetcacheServiceProcessorListPut{handler: handler}
+	self35.processorMap["ListPop"] = &geetcacheServiceProcessorListPop{handler: handler}
+	self35.processorMap["ListGet"] = &geetcacheServiceProcessorListGet{handler: handler}
+	self35.processorMap["ListLen"] = &geetcacheServiceProcessorListLen{handler: handler}
+	self35.processorMap["Get"] = &geetcacheServiceProcessorGet{handler: handler}
+	self35.processorMap["Delete"] = &geetcacheServiceProcessorDelete{handler: handler}
+	self35.processorMap["DeleteList"] = &geetcacheServiceProcessorDeleteList{handler: handler}
+	self35.processorMap["Leader"] = &geetcacheServiceProcessorLeader{handler: handler}
+	self35.processorMap["Peers"] = &geetcacheServiceProcessorPeers{handler: handler}
+	self35.processorMap["AddCounter"] = &geetcacheServiceProcessorAddCounter{handler: handler}
+	self35.processorMap["DeleteCounter"] = &geetcacheServiceProcessorDeleteCounter{handler: handler}
+	self35.processorMap["Increament"] = &geetcacheServiceProcessorIncreament{handler: handler}
+	self35.processorMap["Decrement"] = &geetcacheServiceProcessorDecrement{handler: handler}
+	self35.processorMap["GetCounterValue"] = &geetcacheServiceProcessorGetCounterValue{handler: handler}
+	self35.processorMap["CompSwap"] = &geetcacheServiceProcessorCompSwap{handler: handler}
+	return self35
 }
 
 func (p *GeetcacheServiceProcessor) Process(iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
@@ -794,12 +1361,12 @@ func (p *GeetcacheServiceProcessor) Process(iprot, oprot thrift.TProtocol) (succ
 	}
 	iprot.Skip(thrift.STRUCT)
 	iprot.ReadMessageEnd()
-	x22 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function "+name)
+	x36 := thrift.NewTApplicationException(thrift.UNKNOWN_METHOD, "Unknown function "+name)
 	oprot.WriteMessageBegin(name, thrift.EXCEPTION, seqId)
-	x22.Write(oprot)
+	x36.Write(oprot)
 	oprot.WriteMessageEnd()
 	oprot.Flush()
-	return false, x22
+	return false, x36
 
 }
 
@@ -978,6 +1545,54 @@ func (p *geetcacheServiceProcessorListGet) Process(seqId int32, iprot, oprot thr
 		result.Success = retval
 	}
 	if err2 = oprot.WriteMessageBegin("ListGet", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type geetcacheServiceProcessorListLen struct {
+	handler GeetcacheService
+}
+
+func (p *geetcacheServiceProcessorListLen) Process(seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := GeetcacheServiceListLenArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("ListLen", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	result := GeetcacheServiceListLenResult{}
+	var retval *ListLenResponse
+	var err2 error
+	if retval, err2 = p.handler.ListLen(args.Key); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing ListLen: "+err2.Error())
+		oprot.WriteMessageBegin("ListLen", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("ListLen", thrift.REPLY, seqId); err2 != nil {
 		err = err2
 	}
 	if err2 = result.Write(oprot); err == nil && err2 != nil {
@@ -1218,6 +1833,294 @@ func (p *geetcacheServiceProcessorPeers) Process(seqId int32, iprot, oprot thrif
 		result.Success = retval
 	}
 	if err2 = oprot.WriteMessageBegin("Peers", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type geetcacheServiceProcessorAddCounter struct {
+	handler GeetcacheService
+}
+
+func (p *geetcacheServiceProcessorAddCounter) Process(seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := GeetcacheServiceAddCounterArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("AddCounter", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	result := GeetcacheServiceAddCounterResult{}
+	var retval Status
+	var err2 error
+	if retval, err2 = p.handler.AddCounter(args.Counter); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing AddCounter: "+err2.Error())
+		oprot.WriteMessageBegin("AddCounter", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return true, err2
+	} else {
+		result.Success = &retval
+	}
+	if err2 = oprot.WriteMessageBegin("AddCounter", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type geetcacheServiceProcessorDeleteCounter struct {
+	handler GeetcacheService
+}
+
+func (p *geetcacheServiceProcessorDeleteCounter) Process(seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := GeetcacheServiceDeleteCounterArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("DeleteCounter", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	result := GeetcacheServiceDeleteCounterResult{}
+	var retval Status
+	var err2 error
+	if retval, err2 = p.handler.DeleteCounter(args.CounterName); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing DeleteCounter: "+err2.Error())
+		oprot.WriteMessageBegin("DeleteCounter", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return true, err2
+	} else {
+		result.Success = &retval
+	}
+	if err2 = oprot.WriteMessageBegin("DeleteCounter", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type geetcacheServiceProcessorIncreament struct {
+	handler GeetcacheService
+}
+
+func (p *geetcacheServiceProcessorIncreament) Process(seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := GeetcacheServiceIncreamentArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("Increament", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	result := GeetcacheServiceIncreamentResult{}
+	var retval *CStatus
+	var err2 error
+	if retval, err2 = p.handler.Increament(args.Counter); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing Increament: "+err2.Error())
+		oprot.WriteMessageBegin("Increament", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("Increament", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type geetcacheServiceProcessorDecrement struct {
+	handler GeetcacheService
+}
+
+func (p *geetcacheServiceProcessorDecrement) Process(seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := GeetcacheServiceDecrementArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("Decrement", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	result := GeetcacheServiceDecrementResult{}
+	var retval *CStatus
+	var err2 error
+	if retval, err2 = p.handler.Decrement(args.Counter); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing Decrement: "+err2.Error())
+		oprot.WriteMessageBegin("Decrement", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("Decrement", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type geetcacheServiceProcessorGetCounterValue struct {
+	handler GeetcacheService
+}
+
+func (p *geetcacheServiceProcessorGetCounterValue) Process(seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := GeetcacheServiceGetCounterValueArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("GetCounterValue", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	result := GeetcacheServiceGetCounterValueResult{}
+	var retval *CStatus
+	var err2 error
+	if retval, err2 = p.handler.GetCounterValue(args.CounterName); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing GetCounterValue: "+err2.Error())
+		oprot.WriteMessageBegin("GetCounterValue", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return true, err2
+	} else {
+		result.Success = retval
+	}
+	if err2 = oprot.WriteMessageBegin("GetCounterValue", thrift.REPLY, seqId); err2 != nil {
+		err = err2
+	}
+	if err2 = result.Write(oprot); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.WriteMessageEnd(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err2 = oprot.Flush(); err == nil && err2 != nil {
+		err = err2
+	}
+	if err != nil {
+		return
+	}
+	return true, err
+}
+
+type geetcacheServiceProcessorCompSwap struct {
+	handler GeetcacheService
+}
+
+func (p *geetcacheServiceProcessorCompSwap) Process(seqId int32, iprot, oprot thrift.TProtocol) (success bool, err thrift.TException) {
+	args := GeetcacheServiceCompSwapArgs{}
+	if err = args.Read(iprot); err != nil {
+		iprot.ReadMessageEnd()
+		x := thrift.NewTApplicationException(thrift.PROTOCOL_ERROR, err.Error())
+		oprot.WriteMessageBegin("CompSwap", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return false, err
+	}
+
+	iprot.ReadMessageEnd()
+	result := GeetcacheServiceCompSwapResult{}
+	var retval Status
+	var err2 error
+	if retval, err2 = p.handler.CompSwap(args.Cas); err2 != nil {
+		x := thrift.NewTApplicationException(thrift.INTERNAL_ERROR, "Internal error processing CompSwap: "+err2.Error())
+		oprot.WriteMessageBegin("CompSwap", thrift.EXCEPTION, seqId)
+		x.Write(oprot)
+		oprot.WriteMessageEnd()
+		oprot.Flush()
+		return true, err2
+	} else {
+		result.Success = &retval
+	}
+	if err2 = oprot.WriteMessageBegin("CompSwap", thrift.REPLY, seqId); err2 != nil {
 		err = err2
 	}
 	if err2 = result.Write(oprot); err == nil && err2 != nil {
@@ -2049,6 +2952,198 @@ func (p *GeetcacheServiceListGetResult) String() string {
 		return "<nil>"
 	}
 	return fmt.Sprintf("GeetcacheServiceListGetResult(%+v)", *p)
+}
+
+// Attributes:
+//  - Key
+type GeetcacheServiceListLenArgs struct {
+	Key string `thrift:"key,1" json:"key"`
+}
+
+func NewGeetcacheServiceListLenArgs() *GeetcacheServiceListLenArgs {
+	return &GeetcacheServiceListLenArgs{}
+}
+
+func (p *GeetcacheServiceListLenArgs) GetKey() string {
+	return p.Key
+}
+func (p *GeetcacheServiceListLenArgs) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceListLenArgs) readField1(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadString(); err != nil {
+		return thrift.PrependError("error reading field 1: ", err)
+	} else {
+		p.Key = v
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceListLenArgs) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("ListLen_args"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceListLenArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("key", thrift.STRING, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:key: ", p), err)
+	}
+	if err := oprot.WriteString(string(p.Key)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.key (1) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:key: ", p), err)
+	}
+	return err
+}
+
+func (p *GeetcacheServiceListLenArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceListLenArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type GeetcacheServiceListLenResult struct {
+	Success *ListLenResponse `thrift:"success,0" json:"success,omitempty"`
+}
+
+func NewGeetcacheServiceListLenResult() *GeetcacheServiceListLenResult {
+	return &GeetcacheServiceListLenResult{}
+}
+
+var GeetcacheServiceListLenResult_Success_DEFAULT *ListLenResponse
+
+func (p *GeetcacheServiceListLenResult) GetSuccess() *ListLenResponse {
+	if !p.IsSetSuccess() {
+		return GeetcacheServiceListLenResult_Success_DEFAULT
+	}
+	return p.Success
+}
+func (p *GeetcacheServiceListLenResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *GeetcacheServiceListLenResult) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 0:
+			if err := p.readField0(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceListLenResult) readField0(iprot thrift.TProtocol) error {
+	p.Success = &ListLenResponse{}
+	if err := p.Success.Read(iprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Success), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceListLenResult) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("ListLen_result"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField0(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceListLenResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err := oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err)
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Success), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *GeetcacheServiceListLenResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceListLenResult(%+v)", *p)
 }
 
 // Attributes:
@@ -2933,4 +4028,1194 @@ func (p *GeetcacheServicePeersResult) String() string {
 		return "<nil>"
 	}
 	return fmt.Sprintf("GeetcacheServicePeersResult(%+v)", *p)
+}
+
+// Attributes:
+//  - Counter
+type GeetcacheServiceAddCounterArgs struct {
+	Counter *CAddCommand `thrift:"counter,1" json:"counter"`
+}
+
+func NewGeetcacheServiceAddCounterArgs() *GeetcacheServiceAddCounterArgs {
+	return &GeetcacheServiceAddCounterArgs{}
+}
+
+var GeetcacheServiceAddCounterArgs_Counter_DEFAULT *CAddCommand
+
+func (p *GeetcacheServiceAddCounterArgs) GetCounter() *CAddCommand {
+	if !p.IsSetCounter() {
+		return GeetcacheServiceAddCounterArgs_Counter_DEFAULT
+	}
+	return p.Counter
+}
+func (p *GeetcacheServiceAddCounterArgs) IsSetCounter() bool {
+	return p.Counter != nil
+}
+
+func (p *GeetcacheServiceAddCounterArgs) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceAddCounterArgs) readField1(iprot thrift.TProtocol) error {
+	p.Counter = &CAddCommand{}
+	if err := p.Counter.Read(iprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Counter), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceAddCounterArgs) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("AddCounter_args"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceAddCounterArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("counter", thrift.STRUCT, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:counter: ", p), err)
+	}
+	if err := p.Counter.Write(oprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Counter), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:counter: ", p), err)
+	}
+	return err
+}
+
+func (p *GeetcacheServiceAddCounterArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceAddCounterArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type GeetcacheServiceAddCounterResult struct {
+	Success *Status `thrift:"success,0" json:"success,omitempty"`
+}
+
+func NewGeetcacheServiceAddCounterResult() *GeetcacheServiceAddCounterResult {
+	return &GeetcacheServiceAddCounterResult{}
+}
+
+var GeetcacheServiceAddCounterResult_Success_DEFAULT Status
+
+func (p *GeetcacheServiceAddCounterResult) GetSuccess() Status {
+	if !p.IsSetSuccess() {
+		return GeetcacheServiceAddCounterResult_Success_DEFAULT
+	}
+	return *p.Success
+}
+func (p *GeetcacheServiceAddCounterResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *GeetcacheServiceAddCounterResult) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 0:
+			if err := p.readField0(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceAddCounterResult) readField0(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI32(); err != nil {
+		return thrift.PrependError("error reading field 0: ", err)
+	} else {
+		temp := Status(v)
+		p.Success = &temp
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceAddCounterResult) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("AddCounter_result"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField0(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceAddCounterResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err := oprot.WriteFieldBegin("success", thrift.I32, 0); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err)
+		}
+		if err := oprot.WriteI32(int32(*p.Success)); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T.success (0) field write error: ", p), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *GeetcacheServiceAddCounterResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceAddCounterResult(%+v)", *p)
+}
+
+// Attributes:
+//  - CounterName
+type GeetcacheServiceDeleteCounterArgs struct {
+	CounterName string `thrift:"counterName,1" json:"counterName"`
+}
+
+func NewGeetcacheServiceDeleteCounterArgs() *GeetcacheServiceDeleteCounterArgs {
+	return &GeetcacheServiceDeleteCounterArgs{}
+}
+
+func (p *GeetcacheServiceDeleteCounterArgs) GetCounterName() string {
+	return p.CounterName
+}
+func (p *GeetcacheServiceDeleteCounterArgs) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDeleteCounterArgs) readField1(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadString(); err != nil {
+		return thrift.PrependError("error reading field 1: ", err)
+	} else {
+		p.CounterName = v
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDeleteCounterArgs) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("DeleteCounter_args"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDeleteCounterArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("counterName", thrift.STRING, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:counterName: ", p), err)
+	}
+	if err := oprot.WriteString(string(p.CounterName)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.counterName (1) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:counterName: ", p), err)
+	}
+	return err
+}
+
+func (p *GeetcacheServiceDeleteCounterArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceDeleteCounterArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type GeetcacheServiceDeleteCounterResult struct {
+	Success *Status `thrift:"success,0" json:"success,omitempty"`
+}
+
+func NewGeetcacheServiceDeleteCounterResult() *GeetcacheServiceDeleteCounterResult {
+	return &GeetcacheServiceDeleteCounterResult{}
+}
+
+var GeetcacheServiceDeleteCounterResult_Success_DEFAULT Status
+
+func (p *GeetcacheServiceDeleteCounterResult) GetSuccess() Status {
+	if !p.IsSetSuccess() {
+		return GeetcacheServiceDeleteCounterResult_Success_DEFAULT
+	}
+	return *p.Success
+}
+func (p *GeetcacheServiceDeleteCounterResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *GeetcacheServiceDeleteCounterResult) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 0:
+			if err := p.readField0(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDeleteCounterResult) readField0(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI32(); err != nil {
+		return thrift.PrependError("error reading field 0: ", err)
+	} else {
+		temp := Status(v)
+		p.Success = &temp
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDeleteCounterResult) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("DeleteCounter_result"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField0(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDeleteCounterResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err := oprot.WriteFieldBegin("success", thrift.I32, 0); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err)
+		}
+		if err := oprot.WriteI32(int32(*p.Success)); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T.success (0) field write error: ", p), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *GeetcacheServiceDeleteCounterResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceDeleteCounterResult(%+v)", *p)
+}
+
+// Attributes:
+//  - Counter
+type GeetcacheServiceIncreamentArgs struct {
+	Counter *CChangeCommand `thrift:"counter,1" json:"counter"`
+}
+
+func NewGeetcacheServiceIncreamentArgs() *GeetcacheServiceIncreamentArgs {
+	return &GeetcacheServiceIncreamentArgs{}
+}
+
+var GeetcacheServiceIncreamentArgs_Counter_DEFAULT *CChangeCommand
+
+func (p *GeetcacheServiceIncreamentArgs) GetCounter() *CChangeCommand {
+	if !p.IsSetCounter() {
+		return GeetcacheServiceIncreamentArgs_Counter_DEFAULT
+	}
+	return p.Counter
+}
+func (p *GeetcacheServiceIncreamentArgs) IsSetCounter() bool {
+	return p.Counter != nil
+}
+
+func (p *GeetcacheServiceIncreamentArgs) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceIncreamentArgs) readField1(iprot thrift.TProtocol) error {
+	p.Counter = &CChangeCommand{}
+	if err := p.Counter.Read(iprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Counter), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceIncreamentArgs) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("Increament_args"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceIncreamentArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("counter", thrift.STRUCT, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:counter: ", p), err)
+	}
+	if err := p.Counter.Write(oprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Counter), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:counter: ", p), err)
+	}
+	return err
+}
+
+func (p *GeetcacheServiceIncreamentArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceIncreamentArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type GeetcacheServiceIncreamentResult struct {
+	Success *CStatus `thrift:"success,0" json:"success,omitempty"`
+}
+
+func NewGeetcacheServiceIncreamentResult() *GeetcacheServiceIncreamentResult {
+	return &GeetcacheServiceIncreamentResult{}
+}
+
+var GeetcacheServiceIncreamentResult_Success_DEFAULT *CStatus
+
+func (p *GeetcacheServiceIncreamentResult) GetSuccess() *CStatus {
+	if !p.IsSetSuccess() {
+		return GeetcacheServiceIncreamentResult_Success_DEFAULT
+	}
+	return p.Success
+}
+func (p *GeetcacheServiceIncreamentResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *GeetcacheServiceIncreamentResult) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 0:
+			if err := p.readField0(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceIncreamentResult) readField0(iprot thrift.TProtocol) error {
+	p.Success = &CStatus{}
+	if err := p.Success.Read(iprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Success), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceIncreamentResult) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("Increament_result"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField0(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceIncreamentResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err := oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err)
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Success), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *GeetcacheServiceIncreamentResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceIncreamentResult(%+v)", *p)
+}
+
+// Attributes:
+//  - Counter
+type GeetcacheServiceDecrementArgs struct {
+	Counter *CChangeCommand `thrift:"counter,1" json:"counter"`
+}
+
+func NewGeetcacheServiceDecrementArgs() *GeetcacheServiceDecrementArgs {
+	return &GeetcacheServiceDecrementArgs{}
+}
+
+var GeetcacheServiceDecrementArgs_Counter_DEFAULT *CChangeCommand
+
+func (p *GeetcacheServiceDecrementArgs) GetCounter() *CChangeCommand {
+	if !p.IsSetCounter() {
+		return GeetcacheServiceDecrementArgs_Counter_DEFAULT
+	}
+	return p.Counter
+}
+func (p *GeetcacheServiceDecrementArgs) IsSetCounter() bool {
+	return p.Counter != nil
+}
+
+func (p *GeetcacheServiceDecrementArgs) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDecrementArgs) readField1(iprot thrift.TProtocol) error {
+	p.Counter = &CChangeCommand{}
+	if err := p.Counter.Read(iprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Counter), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDecrementArgs) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("Decrement_args"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDecrementArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("counter", thrift.STRUCT, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:counter: ", p), err)
+	}
+	if err := p.Counter.Write(oprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Counter), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:counter: ", p), err)
+	}
+	return err
+}
+
+func (p *GeetcacheServiceDecrementArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceDecrementArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type GeetcacheServiceDecrementResult struct {
+	Success *CStatus `thrift:"success,0" json:"success,omitempty"`
+}
+
+func NewGeetcacheServiceDecrementResult() *GeetcacheServiceDecrementResult {
+	return &GeetcacheServiceDecrementResult{}
+}
+
+var GeetcacheServiceDecrementResult_Success_DEFAULT *CStatus
+
+func (p *GeetcacheServiceDecrementResult) GetSuccess() *CStatus {
+	if !p.IsSetSuccess() {
+		return GeetcacheServiceDecrementResult_Success_DEFAULT
+	}
+	return p.Success
+}
+func (p *GeetcacheServiceDecrementResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *GeetcacheServiceDecrementResult) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 0:
+			if err := p.readField0(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDecrementResult) readField0(iprot thrift.TProtocol) error {
+	p.Success = &CStatus{}
+	if err := p.Success.Read(iprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Success), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDecrementResult) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("Decrement_result"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField0(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceDecrementResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err := oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err)
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Success), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *GeetcacheServiceDecrementResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceDecrementResult(%+v)", *p)
+}
+
+// Attributes:
+//  - CounterName
+type GeetcacheServiceGetCounterValueArgs struct {
+	CounterName string `thrift:"counterName,1" json:"counterName"`
+}
+
+func NewGeetcacheServiceGetCounterValueArgs() *GeetcacheServiceGetCounterValueArgs {
+	return &GeetcacheServiceGetCounterValueArgs{}
+}
+
+func (p *GeetcacheServiceGetCounterValueArgs) GetCounterName() string {
+	return p.CounterName
+}
+func (p *GeetcacheServiceGetCounterValueArgs) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceGetCounterValueArgs) readField1(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadString(); err != nil {
+		return thrift.PrependError("error reading field 1: ", err)
+	} else {
+		p.CounterName = v
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceGetCounterValueArgs) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("GetCounterValue_args"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceGetCounterValueArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("counterName", thrift.STRING, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:counterName: ", p), err)
+	}
+	if err := oprot.WriteString(string(p.CounterName)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.counterName (1) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:counterName: ", p), err)
+	}
+	return err
+}
+
+func (p *GeetcacheServiceGetCounterValueArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceGetCounterValueArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type GeetcacheServiceGetCounterValueResult struct {
+	Success *CStatus `thrift:"success,0" json:"success,omitempty"`
+}
+
+func NewGeetcacheServiceGetCounterValueResult() *GeetcacheServiceGetCounterValueResult {
+	return &GeetcacheServiceGetCounterValueResult{}
+}
+
+var GeetcacheServiceGetCounterValueResult_Success_DEFAULT *CStatus
+
+func (p *GeetcacheServiceGetCounterValueResult) GetSuccess() *CStatus {
+	if !p.IsSetSuccess() {
+		return GeetcacheServiceGetCounterValueResult_Success_DEFAULT
+	}
+	return p.Success
+}
+func (p *GeetcacheServiceGetCounterValueResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *GeetcacheServiceGetCounterValueResult) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 0:
+			if err := p.readField0(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceGetCounterValueResult) readField0(iprot thrift.TProtocol) error {
+	p.Success = &CStatus{}
+	if err := p.Success.Read(iprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Success), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceGetCounterValueResult) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("GetCounterValue_result"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField0(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceGetCounterValueResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err := oprot.WriteFieldBegin("success", thrift.STRUCT, 0); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err)
+		}
+		if err := p.Success.Write(oprot); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Success), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *GeetcacheServiceGetCounterValueResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceGetCounterValueResult(%+v)", *p)
+}
+
+// Attributes:
+//  - Cas
+type GeetcacheServiceCompSwapArgs struct {
+	Cas *CASCommand `thrift:"cas,1" json:"cas"`
+}
+
+func NewGeetcacheServiceCompSwapArgs() *GeetcacheServiceCompSwapArgs {
+	return &GeetcacheServiceCompSwapArgs{}
+}
+
+var GeetcacheServiceCompSwapArgs_Cas_DEFAULT *CASCommand
+
+func (p *GeetcacheServiceCompSwapArgs) GetCas() *CASCommand {
+	if !p.IsSetCas() {
+		return GeetcacheServiceCompSwapArgs_Cas_DEFAULT
+	}
+	return p.Cas
+}
+func (p *GeetcacheServiceCompSwapArgs) IsSetCas() bool {
+	return p.Cas != nil
+}
+
+func (p *GeetcacheServiceCompSwapArgs) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceCompSwapArgs) readField1(iprot thrift.TProtocol) error {
+	p.Cas = &CASCommand{}
+	if err := p.Cas.Read(iprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error reading struct: ", p.Cas), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceCompSwapArgs) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("CompSwap_args"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceCompSwapArgs) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("cas", thrift.STRUCT, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:cas: ", p), err)
+	}
+	if err := p.Cas.Write(oprot); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T error writing struct: ", p.Cas), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:cas: ", p), err)
+	}
+	return err
+}
+
+func (p *GeetcacheServiceCompSwapArgs) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceCompSwapArgs(%+v)", *p)
+}
+
+// Attributes:
+//  - Success
+type GeetcacheServiceCompSwapResult struct {
+	Success *Status `thrift:"success,0" json:"success,omitempty"`
+}
+
+func NewGeetcacheServiceCompSwapResult() *GeetcacheServiceCompSwapResult {
+	return &GeetcacheServiceCompSwapResult{}
+}
+
+var GeetcacheServiceCompSwapResult_Success_DEFAULT Status
+
+func (p *GeetcacheServiceCompSwapResult) GetSuccess() Status {
+	if !p.IsSetSuccess() {
+		return GeetcacheServiceCompSwapResult_Success_DEFAULT
+	}
+	return *p.Success
+}
+func (p *GeetcacheServiceCompSwapResult) IsSetSuccess() bool {
+	return p.Success != nil
+}
+
+func (p *GeetcacheServiceCompSwapResult) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 0:
+			if err := p.readField0(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceCompSwapResult) readField0(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI32(); err != nil {
+		return thrift.PrependError("error reading field 0: ", err)
+	} else {
+		temp := Status(v)
+		p.Success = &temp
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceCompSwapResult) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("CompSwap_result"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField0(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *GeetcacheServiceCompSwapResult) writeField0(oprot thrift.TProtocol) (err error) {
+	if p.IsSetSuccess() {
+		if err := oprot.WriteFieldBegin("success", thrift.I32, 0); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 0:success: ", p), err)
+		}
+		if err := oprot.WriteI32(int32(*p.Success)); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T.success (0) field write error: ", p), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 0:success: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *GeetcacheServiceCompSwapResult) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("GeetcacheServiceCompSwapResult(%+v)", *p)
 }

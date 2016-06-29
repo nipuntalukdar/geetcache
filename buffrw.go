@@ -20,6 +20,39 @@ func readSureBytes(inp []byte, rd io.Reader) error {
 	}
 }
 
+func writeInt64(num int64, wr io.Writer) error {
+	i := 7
+	buf := make([]byte, 8)
+	for {
+		buf[i] = uint8(num)
+		if i == 0 {
+			break
+		}
+		num >>= 8
+		i--
+	}
+	_, err := wr.Write(buf)
+	return err
+}
+
+func readInt64(rd io.Reader) (int64, error) {
+	buf := make([]byte, 8)
+	err := readSureBytes(buf, rd)
+	if err != nil {
+		return 0, err
+	}
+	var retval int64 = 0
+	i := 0
+	for i < 8 {
+		retval |= int64(buf[i])
+		if i != 7 {
+			retval <<= 8
+		}
+		i++
+	}
+	return retval, nil
+}
+
 func writeUint32(num uint32, wr io.Writer) error {
 	i := 3
 	buf := make([]byte, 4)

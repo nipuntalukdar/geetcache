@@ -5,7 +5,8 @@ import (
 	"os"
 )
 
-var VALID_TYPES map[uint8]bool = map[uint8]bool{LISTTYPE: true, PMAPTYPE: true, MAPTYPE: true}
+var VALID_TYPES map[uint8]bool = map[uint8]bool{LISTTYPE: true, PMAPTYPE: true,
+	MAPTYPE: true, CTRTYPE: true}
 
 func getPartition(key string, maxpart uint32) uint32 {
 	return (crc32.ChecksumIEEE([]byte(key)) & MAX_PARTITIONS_AND) % maxpart

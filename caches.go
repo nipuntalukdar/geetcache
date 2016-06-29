@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 )
 
 type onelist struct {
@@ -25,9 +26,15 @@ type plaincache struct {
 	pcache map[string][]byte
 }
 
+type counterCache struct {
+	lock   *sync.RWMutex
+	ccache map[string]*int64
+}
+
 type caches struct {
 	lcache *listcache
 	pcache *plaincache
+	ccache *counterCache
 }
 
 type partitionedCache struct {
@@ -54,10 +61,17 @@ func newPlainCache() *plaincache {
 	return &plaincache{lock: lock, pcache: pcache}
 }
 
+func newCounterCache() *counterCache {
+	lock := &sync.RWMutex{}
+	ccache := make(map[string]*int64)
+	return &counterCache{lock: lock, ccache: ccache}
+}
+
 func newCaches() *caches {
 	lcache := newListCache()
 	pcache := newPlainCache()
-	return &caches{lcache: lcache, pcache: pcache}
+	ccache := newCounterCache()
+	return &caches{lcache: lcache, pcache: pcache, ccache: ccache}
 }
 
 func newPartitionCache(numpartitions uint32) *partitionedCache {
@@ -214,6 +228,20 @@ func (parts *partitionedCache) list_get(key string, numitem int32, front bool) (
 	return out, Status_SUCCESS
 }
 
+func (parts *partitionedCache) list_len(key string) (int32, Status) {
+	partition := getPartition(key, parts.numpartitions)
+	listref := parts.partitions[partition].lcache
+	listref.lock.Lock()
+	data, ok := listref.lists[key]
+	listref.lock.Unlock()
+	if !ok {
+		return 0, Status_KEY_NOT_EXISTS
+	}
+	data.lock.RLock()
+	defer data.lock.RUnlock()
+	return int32(data.values.Len()), Status_SUCCESS
+}
+
 func (parts *partitionedCache) list_pop(key string, numitem int32, front bool) ([][]byte,
 	Status) {
 	parts.biglock.RLock()
@@ -264,6 +292,100 @@ func (parts *partitionedCache) list_pop(key string, numitem int32, front bool) (
 	return out, Status_SUCCESS
 }
 
+func (parts *partitionedCache) add_counter(counter string, ival int64, replace bool,
+	expiry int64) Status {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(counter, parts.numpartitions)
+	kvs := parts.partitions[partition].ccache
+	kvs.lock.Lock()
+	defer kvs.lock.Unlock()
+	val, ok := kvs.ccache[counter]
+	if ok {
+		if !replace {
+			return Status_KEY_EXISTS
+		} else {
+			atomic.StoreInt64(val, ival)
+			return Status_SUCCESS
+		}
+	}
+	val = new(int64)
+	*val = ival
+	kvs.ccache[counter] = val
+	return Status_SUCCESS
+}
+
+func (parts *partitionedCache) delete_counter(counter string) Status {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(counter, parts.numpartitions)
+	kvs := parts.partitions[partition].ccache
+	kvs.lock.Lock()
+	defer kvs.lock.Unlock()
+	_, ok := kvs.ccache[counter]
+	if ok {
+		delete(kvs.ccache, counter)
+		return Status_SUCCESS
+	}
+	return Status_KEY_NOT_EXISTS
+}
+
+func (parts *partitionedCache) get_counter_value(counter string) (Status, int64) {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(counter, parts.numpartitions)
+	kvs := parts.partitions[partition].ccache
+	kvs.lock.RLock()
+	defer kvs.lock.RUnlock()
+	val, ok := kvs.ccache[counter]
+	if ok {
+		return Status_SUCCESS, atomic.LoadInt64(val)
+	}
+	return Status_KEY_NOT_EXISTS, 0
+}
+
+func (parts *partitionedCache) increment_counter(counter string, delta int64,
+	retold bool) (Status, int64) {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(counter, parts.numpartitions)
+	kvs := parts.partitions[partition].ccache
+	kvs.lock.RLock()
+	defer kvs.lock.RUnlock()
+	val, ok := kvs.ccache[counter]
+	if !ok {
+		return Status_KEY_NOT_EXISTS, 0
+	}
+	ret := atomic.AddInt64(val, delta)
+	if retold {
+		ret -= delta
+	}
+	return Status_SUCCESS, ret
+}
+
+func (parts *partitionedCache) decrement_counter(counter string, delta int64,
+	retold bool) (Status, int64) {
+	return parts.increment_counter(counter, -delta, retold)
+}
+
+func (parts *partitionedCache) cmpswp_counter(counter string, expected int64,
+	newValue int64) Status {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(counter, parts.numpartitions)
+	kvs := parts.partitions[partition].ccache
+	kvs.lock.RLock()
+	defer kvs.lock.RUnlock()
+	val, ok := kvs.ccache[counter]
+	if !ok {
+		return Status_KEY_NOT_EXISTS
+	}
+	if atomic.CompareAndSwapInt64(val, expected, newValue) {
+		return Status_SUCCESS
+	}
+	return Status_FAILURE
+}
+
 func (parts *partitionedCache) dumpPartition(partno uint32, c *caches, writer io.Writer) error {
 	for key, lst := range c.lcache.lists {
 		if lst.values.Len() == 0 {
@@ -277,16 +399,28 @@ func (parts *partitionedCache) dumpPartition(partno uint32, c *caches, writer io
 			errp(writeByteArray(e.Value.([]byte), writer))
 		}
 	}
+	// Dump the plain cache
 	pcachelen := len(c.pcache.pcache)
-	if pcachelen == 0 {
-		return nil
+	if pcachelen > 0 {
+		errp(writeUint32(partno, writer))
+		errp(writeUint8(PMAPTYPE, writer))
+		errp(writeUint32(uint32(pcachelen), writer))
+		for k, v := range c.pcache.pcache {
+			errp(writeString(k, writer))
+			errp(writeByteArray(v, writer))
+		}
 	}
-	errp(writeUint32(partno, writer))
-	errp(writeUint8(PMAPTYPE, writer))
-	errp(writeUint32(uint32(pcachelen), writer))
-	for k, v := range c.pcache.pcache {
-		errp(writeString(k, writer))
-		errp(writeByteArray(v, writer))
+
+	//Dump the counters
+	ccachelen := len(c.ccache.ccache)
+	if ccachelen > 0 {
+		errp(writeUint32(partno, writer))
+		errp(writeUint8(CTRTYPE, writer))
+		errp(writeUint32(uint32(ccachelen), writer))
+		for k, v := range c.ccache.ccache {
+			errp(writeString(k, writer))
+			errp(writeInt64(*v, writer))
+		}
 	}
 	return nil
 }
@@ -334,6 +468,32 @@ func (parts *partitionedCache) getPMap(reader io.Reader) (map[string][]byte, err
 			return nil, err
 		}
 		mp[key] = b
+		numelem--
+	}
+	return mp, nil
+}
+
+func (parts *partitionedCache) getCMap(reader io.Reader) (map[string]*int64, error) {
+	// first get the number of elements for the counter map
+	numelem, err := readUint32(reader)
+	if err != nil {
+		return nil, err
+	}
+
+	mp := make(map[string]*int64)
+	// Now read the key value pairs
+	for numelem > 0 {
+		counter, err := readString(reader)
+		if err != nil {
+			return nil, err
+		}
+		val, err := readInt64(reader)
+		if err != nil {
+			return nil, err
+		}
+		tmp := new(int64)
+		*tmp = val
+		mp[counter] = tmp
 		numelem--
 	}
 	return mp, nil
@@ -389,6 +549,7 @@ func (parts *partitionedCache) Restore(file io.ReadCloser) error {
 		return err
 	}
 	pmap_found := make(map[uint32]bool)
+	cmap_found := make(map[uint32]bool)
 	for {
 		partno, err := readUint32(reader)
 		if err != nil {
@@ -428,6 +589,17 @@ func (parts *partitionedCache) Restore(file io.ReadCloser) error {
 				return err
 			}
 			parts.partitions[partno].pcache.pcache = pmap
+		} else if typ == CTRTYPE {
+			_, ok := cmap_found[partno]
+			if ok {
+				return errors.New(fmt.Sprintf("Multiple cmap found for partition %d", partno))
+			}
+			cmap_found[partno] = true
+			cmap, err := parts.getCMap(reader)
+			if err != nil {
+				return err
+			}
+			parts.partitions[partno].ccache.ccache = cmap
 		}
 	}
 	return nil

@@ -58,15 +58,51 @@ struct ListGPResponse {
     4: optional list<binary> Values
 }
 
+struct ListLenResponse {
+    1: string ListKey
+    2: i32 LLen
+    3: Status Stat
+}
+
+struct CStatus {
+    1: string Name
+    2: Status Stat
+    3: i64 Value
+}
+
+struct CAddCommand {
+    1: string Name
+    2: i64 InitialValue
+    3: bool Replace
+}
+
+struct CChangeCommand {
+    1: string Name
+    2: i64 Delta
+    3: bool ReturnOld
+}
+
+struct CASCommand {
+    1: string Name
+    2: i64 Expected
+    3: i64 UpdVal
+}
 
 service GeetcacheService {
     Status Put(1:PutCommand put)
     Status ListPut(1:ListPutCommand listPut)
     ListGPResponse ListPop(1:ListGPCommand lPop)
     ListGPResponse ListGet(1:ListGPCommand lGet)
+    ListLenResponse ListLen(1:string key)
     GetResponse Get(1:string key)
     DelResponse Delete(1:string key)
     DelResponse DeleteList(1:string key)
     LeaderResponse  Leader()
     PeersResponse   Peers()
+    Status AddCounter(1:CAddCommand counter)
+    Status DeleteCounter(1:string counterName)
+    CStatus Increament(1:CChangeCommand counter)
+    CStatus Decrement(1:CChangeCommand counter)
+    CStatus GetCounterValue(1:string counterName)
+    Status CompSwap(1:CASCommand cas)
 }

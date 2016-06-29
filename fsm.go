@@ -103,6 +103,31 @@ func (cfsm *cacheFsm) Apply(log *raft.Log) interface{} {
 		status := cfsm.parts.delete_list(key)
 		return &applyRet{status: status, resp: nil}
 
+	case ADD_COUNTER:
+		cadd := bin.Command_data.(*CAddCommand)
+		status := cfsm.parts.add_counter(cadd.Name, cadd.InitialValue, cadd.Replace, 0)
+		return newApplyRet(status, nil)
+
+	case DEL_COUNTER:
+		counter := bin.Command_data.(string)
+		status := cfsm.parts.delete_counter(counter)
+		return newApplyRet(status, nil)
+
+	case CAS_COUNTER:
+		counter := bin.Command_data.(*CASCommand)
+		status := cfsm.parts.cmpswp_counter(counter.Name, counter.Expected, counter.UpdVal)
+		return newApplyRet(status, nil)
+
+	case INCR_COUNTER:
+		incrcmd := bin.Command_data.(*CChangeCommand)
+		status, val := cfsm.parts.increment_counter(incrcmd.Name, incrcmd.Delta, incrcmd.ReturnOld)
+		return newApplyRet(status, val)
+
+	case DECR_COUNTER:
+		decrcmd := bin.Command_data.(*CChangeCommand)
+		status, val := cfsm.parts.decrement_counter(decrcmd.Name, decrcmd.Delta, decrcmd.ReturnOld)
+		return newApplyRet(status, val)
+
 	default:
 		return &applyRet{status: Status_BAD_COMMAND, resp: nil}
 	}

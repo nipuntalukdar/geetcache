@@ -88,6 +88,28 @@ func TestUint16Encoding(t *testing.T) {
 	}
 }
 
+func TestInt64Encoding(t *testing.T) {
+	t.Log("Testing int64 encoding")
+	vals := []int64{65534, 1, 0, 10, 100, 300, 3888, 10000, 79, 8000}
+	for _, input := range vals {
+		var buf bytes.Buffer
+		err := writeInt64(input, &buf)
+		if err != nil {
+			b := buf.Bytes()
+			t.Logf("%v ,, len %d\n", b, len(b))
+			t.Fatal("Encoding int64")
+		}
+		val, err := readInt64(&buf)
+		if err != nil {
+			t.Fatal("Decoding int64")
+		}
+		if val != input {
+			t.Fatalf("Incorrect decoded value %d, buflen:%d", val, buf.Len())
+		}
+		t.Logf("Test passed for value:%d", input)
+	}
+}
+
 func TestWriteString(t *testing.T) {
 	x := "hello world, how are you"
 	var buffer bytes.Buffer

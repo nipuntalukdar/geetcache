@@ -14,6 +14,7 @@ Completed features:
 
 * simple key create, delete
 * list put, get, pop, delete
+* counters
 
 TODO
 
@@ -22,7 +23,6 @@ TODO
 * sorted sets
 * hyperloglogs
 * multi maps
-* counters
 * expiry policy
 * snapshot trigerring command
 * disabling persistence
