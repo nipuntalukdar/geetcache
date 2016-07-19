@@ -88,6 +88,23 @@ struct CASCommand {
     3: i64 UpdVal
 }
 
+struct HLogCreateCmd {
+    1: string Name
+    2: i64 Expiry
+}
+
+struct HLogAddCmd {
+    1: string Key
+    2: binary Data 
+}
+
+struct HLogStatus {
+    1: string Key
+    2: optional i64 Expiry
+    3: optional i64 Value
+    4: Status Stat
+}
+
 service GeetcacheService {
     Status Put(1:PutCommand put)
     Status ListPut(1:ListPutCommand listPut)
@@ -105,4 +122,8 @@ service GeetcacheService {
     CStatus Decrement(1:CChangeCommand counter)
     CStatus GetCounterValue(1:string counterName)
     Status CompSwap(1:CASCommand cas)
+    HLogStatus HLogCreate(1:HLogCreateCmd hlcmd)
+    HLogStatus HLogDelete(1:string key)
+    HLogStatus HLogCardinality(1:string key)
+    HLogStatus HLogAdd(1:HLogAddCmd hladd)
 }

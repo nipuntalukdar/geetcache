@@ -61,6 +61,7 @@ func newRaftInterface(spath string, lpath string, snpath string,
 func (rftin *raftInterface) Apply(mutating_command []byte, t time.Duration) *applyRet {
 	future := rftin.rft.Apply(mutating_command, t)
 	if err := future.Error(); err != nil {
+		LOG.Errorf("Some problem %s", err)
 		return newApplyRet(Status_FAILURE, nil)
 	}
 	return future.Response().(*applyRet)

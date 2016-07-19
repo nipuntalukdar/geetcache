@@ -31,10 +31,16 @@ type counterCache struct {
 	ccache map[string]*int64
 }
 
+type hllCache struct {
+	lock   *sync.RWMutex
+	hcache map[string]*hyperlog
+}
+
 type caches struct {
-	lcache *listcache
-	pcache *plaincache
-	ccache *counterCache
+	lcache   *listcache
+	pcache   *plaincache
+	ccache   *counterCache
+	hllcache *hllCache
 }
 
 type partitionedCache struct {
@@ -67,11 +73,18 @@ func newCounterCache() *counterCache {
 	return &counterCache{lock: lock, ccache: ccache}
 }
 
+func newHllCache() *hllCache {
+	lock := &sync.RWMutex{}
+	hcache := make(map[string]*hyperlog)
+	return &hllCache{lock: lock, hcache: hcache}
+}
+
 func newCaches() *caches {
 	lcache := newListCache()
 	pcache := newPlainCache()
 	ccache := newCounterCache()
-	return &caches{lcache: lcache, pcache: pcache, ccache: ccache}
+	hllCache := newHllCache()
+	return &caches{lcache: lcache, pcache: pcache, ccache: ccache, hllcache: hllCache}
 }
 
 func newPartitionCache(numpartitions uint32) *partitionedCache {
@@ -384,6 +397,65 @@ func (parts *partitionedCache) cmpswp_counter(counter string, expected int64,
 		return Status_SUCCESS
 	}
 	return Status_FAILURE
+}
+
+func (parts *partitionedCache) hyperlog_create(key string, expiry int64) Status {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(key, parts.numpartitions)
+	hll := parts.partitions[partition].hllcache
+	hll.lock.Lock()
+	defer hll.lock.Unlock()
+	_, ok := hll.hcache[key]
+	if ok {
+		return Status_KEY_EXISTS
+	}
+	hll.hcache[key] = newHyperLog()
+	return Status_SUCCESS
+}
+
+func (parts *partitionedCache) hyperlog_delete(key string) Status {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(key, parts.numpartitions)
+	hll := parts.partitions[partition].hllcache
+	hll.lock.Lock()
+	defer hll.lock.Unlock()
+	_, ok := hll.hcache[key]
+	if !ok {
+		return Status_KEY_NOT_EXISTS
+	}
+	delete(hll.hcache, key)
+	return Status_SUCCESS
+}
+
+func (parts *partitionedCache) hyperlog_cardinality(key string) (uint64, Status) {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(key, parts.numpartitions)
+	hll := parts.partitions[partition].hllcache
+	hll.lock.RLock()
+	hlog, ok := hll.hcache[key]
+	hll.lock.RUnlock()
+	if !ok {
+		return 0, Status_KEY_NOT_EXISTS
+	}
+	return hlog.count_cardinality(), Status_SUCCESS
+}
+
+func (parts *partitionedCache) hyperlog_add(key string, hashval uint32) Status {
+	parts.biglock.RLock()
+	defer parts.biglock.RUnlock()
+	partition := getPartition(key, parts.numpartitions)
+	hll := parts.partitions[partition].hllcache
+	hll.lock.RLock()
+	defer hll.lock.RUnlock()
+	hlog, ok := hll.hcache[key]
+	if !ok {
+		return Status_KEY_NOT_EXISTS
+	}
+	hlog.addhash(hashval)
+	return Status_SUCCESS
 }
 
 func (parts *partitionedCache) dumpPartition(partno uint32, c *caches, writer io.Writer) error {

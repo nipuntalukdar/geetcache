@@ -2256,3 +2256,474 @@ func (p *CASCommand) String() string {
 	}
 	return fmt.Sprintf("CASCommand(%+v)", *p)
 }
+
+// Attributes:
+//  - Name
+//  - Expiry
+type HLogCreateCmd struct {
+	Name   string `thrift:"Name,1" json:"Name"`
+	Expiry int64  `thrift:"Expiry,2" json:"Expiry"`
+}
+
+func NewHLogCreateCmd() *HLogCreateCmd {
+	return &HLogCreateCmd{}
+}
+
+func (p *HLogCreateCmd) GetName() string {
+	return p.Name
+}
+
+func (p *HLogCreateCmd) GetExpiry() int64 {
+	return p.Expiry
+}
+func (p *HLogCreateCmd) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		case 2:
+			if err := p.readField2(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *HLogCreateCmd) readField1(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadString(); err != nil {
+		return thrift.PrependError("error reading field 1: ", err)
+	} else {
+		p.Name = v
+	}
+	return nil
+}
+
+func (p *HLogCreateCmd) readField2(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI64(); err != nil {
+		return thrift.PrependError("error reading field 2: ", err)
+	} else {
+		p.Expiry = v
+	}
+	return nil
+}
+
+func (p *HLogCreateCmd) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("HLogCreateCmd"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := p.writeField2(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *HLogCreateCmd) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("Name", thrift.STRING, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:Name: ", p), err)
+	}
+	if err := oprot.WriteString(string(p.Name)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.Name (1) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:Name: ", p), err)
+	}
+	return err
+}
+
+func (p *HLogCreateCmd) writeField2(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("Expiry", thrift.I64, 2); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 2:Expiry: ", p), err)
+	}
+	if err := oprot.WriteI64(int64(p.Expiry)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.Expiry (2) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 2:Expiry: ", p), err)
+	}
+	return err
+}
+
+func (p *HLogCreateCmd) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("HLogCreateCmd(%+v)", *p)
+}
+
+// Attributes:
+//  - Key
+//  - Data
+type HLogAddCmd struct {
+	Key  string `thrift:"Key,1" json:"Key"`
+	Data []byte `thrift:"Data,2" json:"Data"`
+}
+
+func NewHLogAddCmd() *HLogAddCmd {
+	return &HLogAddCmd{}
+}
+
+func (p *HLogAddCmd) GetKey() string {
+	return p.Key
+}
+
+func (p *HLogAddCmd) GetData() []byte {
+	return p.Data
+}
+func (p *HLogAddCmd) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		case 2:
+			if err := p.readField2(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *HLogAddCmd) readField1(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadString(); err != nil {
+		return thrift.PrependError("error reading field 1: ", err)
+	} else {
+		p.Key = v
+	}
+	return nil
+}
+
+func (p *HLogAddCmd) readField2(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadBinary(); err != nil {
+		return thrift.PrependError("error reading field 2: ", err)
+	} else {
+		p.Data = v
+	}
+	return nil
+}
+
+func (p *HLogAddCmd) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("HLogAddCmd"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := p.writeField2(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *HLogAddCmd) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("Key", thrift.STRING, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:Key: ", p), err)
+	}
+	if err := oprot.WriteString(string(p.Key)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.Key (1) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:Key: ", p), err)
+	}
+	return err
+}
+
+func (p *HLogAddCmd) writeField2(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("Data", thrift.STRING, 2); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 2:Data: ", p), err)
+	}
+	if err := oprot.WriteBinary(p.Data); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.Data (2) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 2:Data: ", p), err)
+	}
+	return err
+}
+
+func (p *HLogAddCmd) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("HLogAddCmd(%+v)", *p)
+}
+
+// Attributes:
+//  - Key
+//  - Expiry
+//  - Value
+//  - Stat
+type HLogStatus struct {
+	Key    string `thrift:"Key,1" json:"Key"`
+	Expiry *int64 `thrift:"Expiry,2" json:"Expiry,omitempty"`
+	Value  *int64 `thrift:"Value,3" json:"Value,omitempty"`
+	Stat   Status `thrift:"Stat,4" json:"Stat"`
+}
+
+func NewHLogStatus() *HLogStatus {
+	return &HLogStatus{}
+}
+
+func (p *HLogStatus) GetKey() string {
+	return p.Key
+}
+
+var HLogStatus_Expiry_DEFAULT int64
+
+func (p *HLogStatus) GetExpiry() int64 {
+	if !p.IsSetExpiry() {
+		return HLogStatus_Expiry_DEFAULT
+	}
+	return *p.Expiry
+}
+
+var HLogStatus_Value_DEFAULT int64
+
+func (p *HLogStatus) GetValue() int64 {
+	if !p.IsSetValue() {
+		return HLogStatus_Value_DEFAULT
+	}
+	return *p.Value
+}
+
+func (p *HLogStatus) GetStat() Status {
+	return p.Stat
+}
+func (p *HLogStatus) IsSetExpiry() bool {
+	return p.Expiry != nil
+}
+
+func (p *HLogStatus) IsSetValue() bool {
+	return p.Value != nil
+}
+
+func (p *HLogStatus) Read(iprot thrift.TProtocol) error {
+	if _, err := iprot.ReadStructBegin(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read error: ", p), err)
+	}
+
+	for {
+		_, fieldTypeId, fieldId, err := iprot.ReadFieldBegin()
+		if err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T field %d read error: ", p, fieldId), err)
+		}
+		if fieldTypeId == thrift.STOP {
+			break
+		}
+		switch fieldId {
+		case 1:
+			if err := p.readField1(iprot); err != nil {
+				return err
+			}
+		case 2:
+			if err := p.readField2(iprot); err != nil {
+				return err
+			}
+		case 3:
+			if err := p.readField3(iprot); err != nil {
+				return err
+			}
+		case 4:
+			if err := p.readField4(iprot); err != nil {
+				return err
+			}
+		default:
+			if err := iprot.Skip(fieldTypeId); err != nil {
+				return err
+			}
+		}
+		if err := iprot.ReadFieldEnd(); err != nil {
+			return err
+		}
+	}
+	if err := iprot.ReadStructEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T read struct end error: ", p), err)
+	}
+	return nil
+}
+
+func (p *HLogStatus) readField1(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadString(); err != nil {
+		return thrift.PrependError("error reading field 1: ", err)
+	} else {
+		p.Key = v
+	}
+	return nil
+}
+
+func (p *HLogStatus) readField2(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI64(); err != nil {
+		return thrift.PrependError("error reading field 2: ", err)
+	} else {
+		p.Expiry = &v
+	}
+	return nil
+}
+
+func (p *HLogStatus) readField3(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI64(); err != nil {
+		return thrift.PrependError("error reading field 3: ", err)
+	} else {
+		p.Value = &v
+	}
+	return nil
+}
+
+func (p *HLogStatus) readField4(iprot thrift.TProtocol) error {
+	if v, err := iprot.ReadI32(); err != nil {
+		return thrift.PrependError("error reading field 4: ", err)
+	} else {
+		temp := Status(v)
+		p.Stat = temp
+	}
+	return nil
+}
+
+func (p *HLogStatus) Write(oprot thrift.TProtocol) error {
+	if err := oprot.WriteStructBegin("HLogStatus"); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write struct begin error: ", p), err)
+	}
+	if err := p.writeField1(oprot); err != nil {
+		return err
+	}
+	if err := p.writeField2(oprot); err != nil {
+		return err
+	}
+	if err := p.writeField3(oprot); err != nil {
+		return err
+	}
+	if err := p.writeField4(oprot); err != nil {
+		return err
+	}
+	if err := oprot.WriteFieldStop(); err != nil {
+		return thrift.PrependError("write field stop error: ", err)
+	}
+	if err := oprot.WriteStructEnd(); err != nil {
+		return thrift.PrependError("write struct stop error: ", err)
+	}
+	return nil
+}
+
+func (p *HLogStatus) writeField1(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("Key", thrift.STRING, 1); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 1:Key: ", p), err)
+	}
+	if err := oprot.WriteString(string(p.Key)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.Key (1) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 1:Key: ", p), err)
+	}
+	return err
+}
+
+func (p *HLogStatus) writeField2(oprot thrift.TProtocol) (err error) {
+	if p.IsSetExpiry() {
+		if err := oprot.WriteFieldBegin("Expiry", thrift.I64, 2); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 2:Expiry: ", p), err)
+		}
+		if err := oprot.WriteI64(int64(*p.Expiry)); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T.Expiry (2) field write error: ", p), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 2:Expiry: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *HLogStatus) writeField3(oprot thrift.TProtocol) (err error) {
+	if p.IsSetValue() {
+		if err := oprot.WriteFieldBegin("Value", thrift.I64, 3); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field begin error 3:Value: ", p), err)
+		}
+		if err := oprot.WriteI64(int64(*p.Value)); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T.Value (3) field write error: ", p), err)
+		}
+		if err := oprot.WriteFieldEnd(); err != nil {
+			return thrift.PrependError(fmt.Sprintf("%T write field end error 3:Value: ", p), err)
+		}
+	}
+	return err
+}
+
+func (p *HLogStatus) writeField4(oprot thrift.TProtocol) (err error) {
+	if err := oprot.WriteFieldBegin("Stat", thrift.I32, 4); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field begin error 4:Stat: ", p), err)
+	}
+	if err := oprot.WriteI32(int32(p.Stat)); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T.Stat (4) field write error: ", p), err)
+	}
+	if err := oprot.WriteFieldEnd(); err != nil {
+		return thrift.PrependError(fmt.Sprintf("%T write field end error 4:Stat: ", p), err)
+	}
+	return err
+}
+
+func (p *HLogStatus) String() string {
+	if p == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("HLogStatus(%+v)", *p)
+}

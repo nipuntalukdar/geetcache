@@ -36,3 +36,54 @@ func getFileSizeFile(file *os.File) int64 {
 	}
 	return filestat.Size()
 }
+
+func murmur3_64(data []byte, seed uint64) uint64 {
+	var m uint64 = 0xc6a4a7935bd1e995
+	var r uint64 = 47
+	length := uint64(len(data))
+	hashval := (seed & 0xffffffff) ^ (length * m)
+	numeightbytes := length - (length & 7)
+	for i := uint64(0); i < numeightbytes; i += 8 {
+		k := uint64(data[i+7])
+		k = k<<8 + uint64(data[i+6])
+		k = k<<8 + uint64(data[i+5])
+		k = k<<8 + uint64(data[i+4])
+		k = k<<8 + uint64(data[i+3])
+		k = k<<8 + uint64(data[i+2])
+		k = k<<8 + uint64(data[i+1])
+		k = k<<8 + uint64(data[i])
+		k *= m
+		k ^= k >> r
+		k *= m
+		hashval ^= k
+		hashval *= m
+	}
+	remaining := length & 7
+	if remaining > 0 {
+		remaining_start := data[numeightbytes:]
+		if remaining == 7 {
+			hashval ^= uint64(remaining_start[6]) << 48
+		}
+		if remaining >= 6 {
+			hashval ^= uint64(remaining_start[5]) << 40
+		}
+		if remaining >= 5 {
+			hashval ^= uint64(remaining_start[4]) << 32
+		}
+		if remaining >= 4 {
+			hashval ^= uint64(remaining_start[3]) << 24
+		}
+		if remaining >= 3 {
+			hashval ^= uint64(remaining_start[2]) << 16
+		}
+		if remaining >= 2 {
+			hashval ^= uint64(remaining_start[1]) << 8
+		}
+		hashval ^= uint64(remaining_start[0])
+		hashval *= m
+	}
+	hashval ^= hashval >> r
+	hashval *= m
+	hashval ^= hashval >> r
+	return hashval
+}

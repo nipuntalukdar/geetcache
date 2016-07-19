@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
-	"fmt"
 	"github.com/hashicorp/raft"
 	"io"
 )
@@ -73,12 +72,14 @@ func newCacheFsm(parts *partitionedCache) *cacheFsm {
 func (cfsm *cacheFsm) Apply(log *raft.Log) interface{} {
 	bin, err := deserBinLog(log.Data)
 	if err != nil {
+		LOG.Errorf("Deserializatio problem: %s", err)
 		return false
 	}
+	LOG.Debugf("The command code %v", bin.Command_code)
 	code := bin.Command_code
 	switch code {
 	case PUT:
-		fmt.Printf("Putting %v\n", bin.Command_data)
+		LOG.Debugf("Putting %v", bin.Command_data)
 		lput := bin.Command_data.(*PutCommand)
 		status := cfsm.parts.put(lput.Key, lput.Data, lput.Expiry)
 		return &applyRet{status: status, resp: nil}
@@ -127,6 +128,24 @@ func (cfsm *cacheFsm) Apply(log *raft.Log) interface{} {
 		decrcmd := bin.Command_data.(*CChangeCommand)
 		status, val := cfsm.parts.decrement_counter(decrcmd.Name, decrcmd.Delta, decrcmd.ReturnOld)
 		return newApplyRet(status, val)
+
+	case CREATE_HLL:
+		hlcmd := bin.Command_data.(*HLogCreateCmd)
+		status := cfsm.parts.hyperlog_create(hlcmd.Name, hlcmd.Expiry)
+		return newApplyRet(status, nil)
+
+	case DEL_HLL:
+		hlkey := bin.Command_data.(string)
+		status := cfsm.parts.hyperlog_delete(hlkey)
+		return newApplyRet(status, nil)
+
+	case ADD_HLL:
+		haddcmd := bin.Command_data.(*HLogAddCmd)
+		status := cfsm.parts.hyperlog_add(haddcmd.Key, uint32(murmur3_64(haddcmd.Data, 0)))
+		if status != Status_SUCCESS {
+			LOG.Errorf("Failed to add hll")
+		}
+		return newApplyRet(status, nil)
 
 	default:
 		return &applyRet{status: Status_BAD_COMMAND, resp: nil}

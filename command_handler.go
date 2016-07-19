@@ -18,6 +18,9 @@ func registerTypes() {
 	gob.Register(NewCAddCommand())
 	gob.Register(NewCASCommand())
 	gob.Register(NewCChangeCommand())
+	gob.Register(NewHLogCreateCmd())
+	gob.Register(NewHLogAddCmd())
+	gob.Register(NewHLogStatus())
 }
 
 func NewGeetCacheHandler() (*GeetCacheHandler, error) {
@@ -245,4 +248,66 @@ func (gch *GeetCacheHandler) GetCounterValue(counterName string) (*CStatus, erro
 	cs.Name = counterName
 	cs.Value = val
 	return cs, nil
+}
+
+func (gch *GeetCacheHandler) HLogCreate(hcmd *HLogCreateCmd) (*HLogStatus, error) {
+	bnl := newBinLog(CREATE_HLL, hcmd)
+	sbnl, err := bnl.serialize()
+	if err != nil {
+		LOG.Errorf("HLL create %s: %s", hcmd.Name, err)
+	}
+	applr := gch.rft.Apply(sbnl, 0)
+	if applr.status != Status_SUCCESS {
+		LOG.Errorf("HLL create:%s, %s ", hcmd.Name, applr.status)
+	}
+	hls := NewHLogStatus()
+	hls.Stat = applr.status
+	hls.Key = hcmd.Name
+	return hls, nil
+}
+
+func (gch *GeetCacheHandler) HLogDelete(key string) (*HLogStatus, error) {
+	bnl := newBinLog(DEL_HLL, key)
+	sbnl, err := bnl.serialize()
+	if err != nil {
+		LOG.Errorf("Delete hyperlog %s: %s", key, err)
+	}
+	applr := gch.rft.Apply(sbnl, 0)
+	if applr.status != Status_SUCCESS {
+		LOG.Errorf("Delete hyperlog:%s, %s ", key, applr.status)
+	}
+	hls := NewHLogStatus()
+	hls.Stat = applr.status
+	hls.Key = key
+	return hls, nil
+}
+
+func (gch *GeetCacheHandler) HLogCardinality(key string) (*HLogStatus, error) {
+	val, status := gch.parts.hyperlog_cardinality(key)
+	LOG.Infof("Cardinality %d, key:%s", val, key)
+	hls := NewHLogStatus()
+	hls.Stat = status
+	hls.Key = key
+	if Status_SUCCESS == status {
+		newval := new(int64)
+		*newval = int64(val)
+		hls.Value = newval
+	}
+	return hls, nil
+}
+
+func (gch *GeetCacheHandler) HLogAdd(hcmd *HLogAddCmd) (*HLogStatus, error) {
+	bnl := newBinLog(ADD_HLL, hcmd)
+	sbnl, err := bnl.serialize()
+	if err != nil {
+		LOG.Errorf("HLL Add1 %s: %s", hcmd.Key, err)
+	}
+	applr := gch.rft.Apply(sbnl, 0)
+	if applr.status != Status_SUCCESS {
+		LOG.Errorf("HLL Add2 :%s, %s ", hcmd.Key, applr.status)
+	}
+	hls := NewHLogStatus()
+	hls.Stat = applr.status
+	hls.Key = hcmd.Key
+	return hls, nil
 }
