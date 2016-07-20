@@ -15,14 +15,15 @@ Completed features:
 * simple key create, delete
 * list put, get, pop, delete
 * counters
+* hyperloglogs
 
 TODO
 
 * hash maps
 * sets
 * sorted sets
-* hyperloglogs
 * multi maps
+* hyperloglogplus
 * expiry policy
 * snapshot trigerring command
 * disabling persistence

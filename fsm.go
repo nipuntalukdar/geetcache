@@ -141,7 +141,7 @@ func (cfsm *cacheFsm) Apply(log *raft.Log) interface{} {
 
 	case ADD_HLL:
 		haddcmd := bin.Command_data.(*HLogAddCmd)
-		status := cfsm.parts.hyperlog_add(haddcmd.Key, uint32(murmur3_64(haddcmd.Data, 0)))
+		status := cfsm.parts.hyperlog_add(haddcmd.Key, murmur3_32(haddcmd.Data, 0))
 		if status != Status_SUCCESS {
 			LOG.Errorf("Failed to add hll")
 		}
