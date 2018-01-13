@@ -27,6 +27,8 @@ TODO
 * expiry policy
 * snapshot trigerring command
 * disabling persistence
+* queue
+* publish/subscribe
+* delayed queue
 * better concurrency for snapshotting
-
 
