@@ -1,4 +1,4 @@
-namespace go main
+namespace go thrift
 
 enum Status {
     SUCCESS,
