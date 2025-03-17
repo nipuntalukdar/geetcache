@@ -6,6 +6,8 @@ import (
 	"errors"
 	"github.com/hashicorp/raft"
 	"io"
+
+	"github.com/nipuntalukdar/geetcache/thrift"
 )
 
 type binLog struct {
@@ -14,11 +16,11 @@ type binLog struct {
 }
 
 type applyRet struct {
-	status Status
+	status thrift.Status
 	resp   interface{}
 }
 
-func newApplyRet(st Status, resp interface{}) *applyRet {
+func newApplyRet(st thrift.Status, resp interface{}) *applyRet {
 	return &applyRet{status: st, resp: resp}
 }
 
@@ -72,25 +74,25 @@ func newCacheFsm(parts *partitionedCache) *cacheFsm {
 func (cfsm *cacheFsm) Apply(log *raft.Log) interface{} {
 	bin, err := deserBinLog(log.Data)
 	if err != nil {
-		LOG.Errorf("Deserializatio problem: %s", err)
+		SLOG.Error("Deserialization", "error", err)
 		return false
 	}
-	LOG.Debugf("The command code %v", bin.Command_code)
+	SLOG.Debug("Command to apply", "command", bin.Command_code)
 	code := bin.Command_code
 	switch code {
 	case PUT:
-		LOG.Debugf("Putting %v", bin.Command_data)
-		lput := bin.Command_data.(*PutCommand)
+		SLOG.Debug("PUT", "put", bin.Command_data)
+		lput := bin.Command_data.(*thrift.PutCommand)
 		status := cfsm.parts.put(lput.Key, lput.Data, lput.Expiry)
 		return &applyRet{status: status, resp: nil}
 
 	case LISTPUT:
-		listput := bin.Command_data.(*ListPutCommand)
+		listput := bin.Command_data.(*thrift.ListPutCommand)
 		status := cfsm.parts.list_put(listput.ListKey, listput.Values, listput.Append)
 		return &applyRet{status: status, resp: nil}
 
 	case LISTPOP:
-		popc := bin.Command_data.(*ListGPCommand)
+		popc := bin.Command_data.(*thrift.ListGPCommand)
 		pops, status := cfsm.parts.list_pop(popc.ListKey, popc.MaxCount, popc.Front)
 		return &applyRet{status: status, resp: pops}
 
@@ -105,7 +107,7 @@ func (cfsm *cacheFsm) Apply(log *raft.Log) interface{} {
 		return &applyRet{status: status, resp: nil}
 
 	case ADD_COUNTER:
-		cadd := bin.Command_data.(*CAddCommand)
+		cadd := bin.Command_data.(*thrift.CAddCommand)
 		status := cfsm.parts.add_counter(cadd.Name, cadd.InitialValue, cadd.Replace, 0)
 		return newApplyRet(status, nil)
 
@@ -115,22 +117,22 @@ func (cfsm *cacheFsm) Apply(log *raft.Log) interface{} {
 		return newApplyRet(status, nil)
 
 	case CAS_COUNTER:
-		counter := bin.Command_data.(*CASCommand)
+		counter := bin.Command_data.(*thrift.CASCommand)
 		status := cfsm.parts.cmpswp_counter(counter.Name, counter.Expected, counter.UpdVal)
 		return newApplyRet(status, nil)
 
 	case INCR_COUNTER:
-		incrcmd := bin.Command_data.(*CChangeCommand)
+		incrcmd := bin.Command_data.(*thrift.CChangeCommand)
 		status, val := cfsm.parts.increment_counter(incrcmd.Name, incrcmd.Delta, incrcmd.ReturnOld)
 		return newApplyRet(status, val)
 
 	case DECR_COUNTER:
-		decrcmd := bin.Command_data.(*CChangeCommand)
+		decrcmd := bin.Command_data.(*thrift.CChangeCommand)
 		status, val := cfsm.parts.decrement_counter(decrcmd.Name, decrcmd.Delta, decrcmd.ReturnOld)
 		return newApplyRet(status, val)
 
 	case CREATE_HLL:
-		hlcmd := bin.Command_data.(*HLogCreateCmd)
+		hlcmd := bin.Command_data.(*thrift.HLogCreateCmd)
 		status := cfsm.parts.hyperlog_create(hlcmd.Name, hlcmd.Expiry)
 		return newApplyRet(status, nil)
 
@@ -140,15 +142,15 @@ func (cfsm *cacheFsm) Apply(log *raft.Log) interface{} {
 		return newApplyRet(status, nil)
 
 	case ADD_HLL:
-		haddcmd := bin.Command_data.(*HLogAddCmd)
+		haddcmd := bin.Command_data.(*thrift.HLogAddCmd)
 		status := cfsm.parts.hyperlog_add(haddcmd.Key, murmur3_32(haddcmd.Data, 0))
-		if status != Status_SUCCESS {
-			LOG.Errorf("Failed to add hll")
+		if status != thrift.Status_SUCCESS {
+			SLOG.Error("Failed to add hll")
 		}
 		return newApplyRet(status, nil)
 
 	default:
-		return &applyRet{status: Status_BAD_COMMAND, resp: nil}
+		return &applyRet{status: thrift.Status_BAD_COMMAND, resp: nil}
 	}
 }
 
@@ -162,7 +164,7 @@ func (cfsm *cacheFsm) Restore(reader io.ReadCloser) error {
 
 func (cfsm *cacheFsm) Persist(sink raft.SnapshotSink) error {
 	status := cfsm.parts.Persist(sink)
-	if status != Status_SUCCESS {
+	if status != thrift.Status_SUCCESS {
 		return errors.New("Failed to snapshot")
 	}
 	return nil

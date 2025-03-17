@@ -2,165 +2,82 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
-	"io/ioutil"
-	"sync"
+	"os"
 )
 
 const (
 	default_config = `
 	{
-		"myid" : 1,
-		"myself" : "127.0.0.1:7001",
-		"peerdir" : "/tmp/peer1",
-		"logs" : "/tmp/logs1/logs",
-		"sstore" : "/tmp/sstore1/db",
-		"snapshot" : "/tmp/snapshot1",
-		"rpcaddr" : "127.0.0.1:9091",
+		"myid" : "id1",
+		"logs" : "data/logs",
+		"sstore" : "data/db",
+		"snapshot" : "data/snapshot",
+		"rpcaddr" : "127.0.0.1:8000",
+		"httpappdress" : "127.0.0.1:6000",
 		"raftpeers" : [
-			"127.0.0.1:7001",
-			"127.0.0.1:7002",
-			"127.0.0.1:7003"
+			{   
+	            "Suffrage" : 0,
+				"Address" :"127.0.0.1:7000",
+				"ID" : "id1"
+	        },
+			{   
+	            "Suffrage" : 0,
+				"Address" :"127.0.0.1:7001",
+				"ID" : "id1"
+	        },
+			{   
+	            "Suffrage" : 0,
+				"Address" :"127.0.0.1:7002",
+				"ID" : "id1"
+	        }
 		],
-		"numpartitions" : 8192,
-		"loggingfilepath" : "/tmp/logfile1/geetcache.log",
-		"logrolloversize" : 20971520,
-		"loglevel" : "info",
-		"maxbackup" : 10
+		"numpartitions" : 8192
 	}`
 )
 
-var conf *config = nil
-var init_once sync.Once
-
-type config struct {
-	conf_data map[string]interface{}
+type RaftPeer struct {
+	Suffrage int    `json:"Suffrage"`
+	Address  string `json:"Address"`
+	ID       string `json:"ID"`
 }
 
-func initConfigS(config_data []byte) (*config, error) {
-	var err error = nil
-	init_once.Do(func() {
-		var decoded map[string]interface{}
-		err = json.Unmarshal(config_data, &decoded)
-		if err == nil {
-			conf = &config{conf_data: decoded}
-		}
-	})
-	if err != nil {
-		fmt.Printf("Error in config %v\n", err)
-	}
-	return conf, err
+type Config struct {
+	MyID          string     `json:"myid"`
+	Logs          string     `json:"logs"`
+	SStore        string     `json:"sstore"`
+	Snapshot      string     `json:"snapshot"`
+	RPCAddr       string     `json:"rpcaddr"`
+	HTTPAddress   string     `json:"httpappdress"`
+	RaftPeers     []RaftPeer `json:"raftpeers"`
+	NumPartitions int        `json:"numpartitions"`
 }
 
-func initConfig(configfile string) (*config, error) {
-	data, err := ioutil.ReadFile(configfile)
+var (
+	CONFIG *Config
+)
+
+func initConfigS(config_data []byte) (*Config, error) {
+	var conf Config
+	err := json.Unmarshal(config_data, &conf)
+	CONFIG = &conf
+	return &conf, err
+}
+
+func initConfig(configfile string) (*Config, error) {
+	data, err := os.ReadFile(configfile)
 	if err != nil {
 		return nil, err
 	}
 	return initConfigS(data)
 }
 
-func (conf *config) getIntVal(key string) (int, error) {
-	val, ok := conf.conf_data[key]
-	if !ok {
-		return 0, errors.New(fmt.Sprintf("Could not get value for key:%s", key))
+
+func (config *Config) GetRaftAddress(id string) (address string) {
+	for _, rpeer := range config.RaftPeers {
+		if rpeer.ID == id {
+			address = rpeer.Address
+			break
+		}
 	}
-	return int(val.(float64)), nil
-}
-
-func (conf *config) getStringVal(key string) (string, error) {
-	val, ok := conf.conf_data[key]
-	if !ok {
-		return "", errors.New(fmt.Sprintf("Could not get value for key:%s", key))
-	}
-	return val.(string), nil
-}
-
-func (conf *config) getMyId() (int, error) {
-	return conf.getIntVal("myid")
-}
-
-func (conf *config) getStringArray(key string) ([]string, error) {
-	val, ok := conf.conf_data[key]
-	if !ok {
-		return nil, errors.New(fmt.Sprintf("Could not get value for key:%s", key))
-	}
-	return val.([]string), nil
-}
-
-func (conf *config) getMyAddr() (string, error) {
-	return conf.getStringVal("myself")
-}
-
-func (conf *config) getLogDir() (string, error) {
-	return conf.getStringVal("logs")
-}
-
-func (conf *config) getPeerListDir() (string, error) {
-	return conf.getStringVal("peerdir")
-}
-
-func (conf *config) getStableStoreDir() (string, error) {
-	return conf.getStringVal("sstore")
-}
-
-func (conf *config) getSnapshotDir() (string, error) {
-	return conf.getStringVal("snapshot")
-}
-
-func (conf *config) getRpcAddr() (string, error) {
-	return conf.getStringVal("rpcaddr")
-}
-
-func (conf *config) getPeers() ([]string, error) {
-	return conf.getStringArray("raftpeers")
-}
-
-func (conf *config) getLogFile() (string, error) {
-	return conf.getStringVal("loggingfilepath")
-}
-
-func (conf *config) getLogRollSize() (int, error) {
-	rollsize, ok := conf.conf_data["logrolloversize"]
-	if !ok {
-		return 0, errors.New("logrolloversize is not provided")
-	}
-	return int(rollsize.(float64)), nil
-}
-
-func (conf *config) getLogLevel() (string, error) {
-	return conf.getStringVal("loglevel")
-}
-
-func (conf *config) getLogBackup() (int, error) {
-	max_backup, err := conf.getIntVal("maxbackup")
-	if err != nil {
-		return 0, err
-	}
-	if max_backup <= 0 {
-		max_backup = 2
-	}
-	if max_backup > MAX_LOG_BACKUP {
-		max_backup = MAX_LOG_BACKUP
-	}
-	return max_backup, nil
-}
-
-func (conf *config) getNumPartition() (int, error) {
-	numpartitions, err := conf.getIntVal("numpartitions")
-	if err != nil {
-		return 0, err
-	}
-	if numpartitions < MIN_PARTITIONS {
-		numpartitions = MIN_PARTITIONS
-	}
-	if numpartitions > MAX_PARTITIONS {
-		numpartitions = MAX_PARTITIONS
-	}
-	return numpartitions, nil
-}
-
-func getConfig() *config {
-	return conf
+	return
 }

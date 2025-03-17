@@ -1,9 +1,9 @@
 package main
 
 import (
-	"errors"
 	"github.com/hashicorp/raft"
 	"github.com/hashicorp/raft-boltdb"
+	"github.com/nipuntalukdar/geetcache/thrift"
 	"time"
 )
 
@@ -11,14 +11,12 @@ type raftInterface struct {
 	stableStorePath string
 	logStorePath    string
 	snapshotPath    string
-	peerPath        string
 	transport       string
 	rft             *raft.Raft
-	peerStore       raft.PeerStore
 }
 
 func newRaftInterface(spath string, lpath string, snpath string,
-	peerpath string, fsm raft.FSM) (*raftInterface, error) {
+	fsm raft.FSM) (*raftInterface, error) {
 	sstore, err := raftboltdb.NewBoltStore(spath)
 	if err != nil {
 		return nil, err
@@ -34,48 +32,41 @@ func newRaftInterface(spath string, lpath string, snpath string,
 		return nil, err
 	}
 
-	my_raft_addr, err := getConfig().getMyAddr()
-	if err != nil {
-		return nil, err
+	my_raft_addr := CONFIG.GetRaftAddress(CONFIG.MyID)
+	if my_raft_addr == "" {
+		SLOG.Fatal("Invadli Raft address")
 	}
 	transport, err := raft.NewTCPTransport(my_raft_addr, nil, 10, 10*time.Second, SLOG_WRITER)
 	if err != nil {
 		return nil, err
 	}
 
-	peerstore := raft.NewJSONPeers(peerpath, transport)
 	conf := raft.DefaultConfig()
-	conf.EnableSingleNode = true
 	conf.SnapshotThreshold = 400
 	conf.SnapshotInterval = 120 * time.Second
 	conf.Logger = SLOG
 
-	rft, err := raft.NewRaft(conf, fsm, logstore, sstore, snaps, peerstore, transport)
+	rft, err := raft.NewRaft(conf, fsm, logstore, sstore, snaps, transport)
 	if err != nil {
 		return nil, err
 	}
-	return &raftInterface{stableStorePath: spath, logStorePath: lpath, snapshotPath: snpath,
-		peerPath: peerpath, rft: rft, peerStore: peerstore}, nil
+	return &raftInterface{stableStorePath: spath, logStorePath: lpath,
+		snapshotPath: snpath, transport: my_raft_addr, rft: rft}, nil
 }
 
 func (rftin *raftInterface) Apply(mutating_command []byte, t time.Duration) *applyRet {
 	future := rftin.rft.Apply(mutating_command, t)
 	if err := future.Error(); err != nil {
-		LOG.Errorf("Some problem %s", err)
-		return newApplyRet(Status_FAILURE, nil)
+		SLOG.Error("ratft apply", "error", err)
+		return newApplyRet(thrift.Status_FAILURE, nil)
 	}
 	return future.Response().(*applyRet)
 }
 
 func (rftin *raftInterface) Peers() ([]string, error) {
-	peers, err := rftin.peerStore.Peers()
-	if err != nil {
-		LOG.Errorf("Failure in getting peers %s", err)
-		return nil, errors.New("Peers error")
-	}
-	return peers, nil
+	return nil, nil
 }
 
 func (rftin *raftInterface) Leader() string {
-	return rftin.rft.Leader()
+	return string(rftin.rft.Leader())
 }

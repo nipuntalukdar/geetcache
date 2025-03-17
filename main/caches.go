@@ -9,6 +9,8 @@ import (
 	"os"
 	"sync"
 	"sync/atomic"
+
+	"github.com/nipuntalukdar/geetcache/thrift"
 )
 
 type onelist struct {
@@ -103,7 +105,7 @@ func newPartitionCache(numpartitions uint32) *partitionedCache {
 	return &partitionedCache{numpartitions: numpartitions, partitions: partitions, biglock: &sync.RWMutex{}}
 }
 
-func (parts *partitionedCache) put(key string, data []byte, expiry int64) Status {
+func (parts *partitionedCache) put(key string, data []byte, expiry int64) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -112,14 +114,14 @@ func (parts *partitionedCache) put(key string, data []byte, expiry int64) Status
 	defer kvs.lock.Unlock()
 	_, ok := kvs.pcache[key]
 	if ok {
-		return Status_KEY_EXISTS
+		return thrift.Status_KEY_EXISTS
 	}
 	copied := copyslice(data)
 	kvs.pcache[key] = copied
-	return Status_SUCCESS
+	return thrift.Status_SUCCESS
 }
 
-func (parts *partitionedCache) delete(key string) Status {
+func (parts *partitionedCache) delete(key string) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -129,27 +131,27 @@ func (parts *partitionedCache) delete(key string) Status {
 
 	_, ok := kvs.pcache[key]
 	if !ok {
-		return Status_KEY_NOT_EXISTS
+		return thrift.Status_KEY_NOT_EXISTS
 	} else {
 		delete(kvs.pcache, key)
-		return Status_SUCCESS
+		return thrift.Status_SUCCESS
 	}
 }
 
-func (parts *partitionedCache) get(key string) ([]byte, Status) {
+func (parts *partitionedCache) get(key string) ([]byte, thrift.Status) {
 	partition := getPartition(key, parts.numpartitions)
 	kvs := parts.partitions[partition].pcache
 	kvs.lock.Lock()
 	defer kvs.lock.Unlock()
 	data, ok := kvs.pcache[key]
 	if !ok {
-		return nil, Status_KEY_NOT_EXISTS
+		return nil, thrift.Status_KEY_NOT_EXISTS
 	}
 	copied := copyslice(data)
-	return copied, Status_SUCCESS
+	return copied, thrift.Status_SUCCESS
 }
 
-func (parts *partitionedCache) list_put(key string, values [][]byte, append bool) Status {
+func (parts *partitionedCache) list_put(key string, values [][]byte, append bool) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -170,10 +172,10 @@ func (parts *partitionedCache) list_put(key string, values [][]byte, append bool
 			data.values.PushFront(val)
 		}
 	}
-	return Status_SUCCESS
+	return thrift.Status_SUCCESS
 }
 
-func (parts *partitionedCache) delete_list(key string) Status {
+func (parts *partitionedCache) delete_list(key string) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -183,28 +185,28 @@ func (parts *partitionedCache) delete_list(key string) Status {
 
 	_, ok := listref.lists[key]
 	if !ok {
-		LOG.Debugf("List not found: %s", key)
-		return Status_KEY_NOT_EXISTS
+		SLOG.Debug("List not found", "Key", key)
+		return thrift.Status_KEY_NOT_EXISTS
 	} else {
 		delete(listref.lists, key)
-		LOG.Debugf("Deleted list: %s", key)
-		return Status_SUCCESS
+		SLOG.Debug("Deleted list", "Key", key)
+		return thrift.Status_SUCCESS
 	}
 }
 
-func (parts *partitionedCache) list_get(key string, numitem int32, front bool) ([][]byte, Status) {
+func (parts *partitionedCache) list_get(key string, numitem int32, front bool) ([][]byte, thrift.Status) {
 	partition := getPartition(key, parts.numpartitions)
 	listref := parts.partitions[partition].lcache
 	listref.lock.Lock()
 	defer listref.lock.Unlock()
 	data, ok := listref.lists[key]
 	if !ok {
-		return nil, Status_KEY_NOT_EXISTS
+		return nil, thrift.Status_KEY_NOT_EXISTS
 	}
 	data.lock.RLock()
 	defer data.lock.RUnlock()
 	if data.values.Len() == 0 {
-		return nil, Status_EMPTY_LIST
+		return nil, thrift.Status_EMPTY_LIST
 	}
 
 	if numitem < MIN_GET {
@@ -238,25 +240,25 @@ func (parts *partitionedCache) list_get(key string, numitem int32, front bool) (
 			i++
 		}
 	}
-	return out, Status_SUCCESS
+	return out, thrift.Status_SUCCESS
 }
 
-func (parts *partitionedCache) list_len(key string) (int32, Status) {
+func (parts *partitionedCache) list_len(key string) (int32, thrift.Status) {
 	partition := getPartition(key, parts.numpartitions)
 	listref := parts.partitions[partition].lcache
 	listref.lock.Lock()
 	data, ok := listref.lists[key]
 	listref.lock.Unlock()
 	if !ok {
-		return 0, Status_KEY_NOT_EXISTS
+		return 0, thrift.Status_KEY_NOT_EXISTS
 	}
 	data.lock.RLock()
 	defer data.lock.RUnlock()
-	return int32(data.values.Len()), Status_SUCCESS
+	return int32(data.values.Len()), thrift.Status_SUCCESS
 }
 
 func (parts *partitionedCache) list_pop(key string, numitem int32, front bool) ([][]byte,
-	Status) {
+	thrift.Status) {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -265,12 +267,12 @@ func (parts *partitionedCache) list_pop(key string, numitem int32, front bool) (
 	defer listref.lock.Unlock()
 	data, ok := listref.lists[key]
 	if !ok {
-		return nil, Status_KEY_NOT_EXISTS
+		return nil, thrift.Status_KEY_NOT_EXISTS
 	}
 	data.lock.Lock()
 	defer data.lock.Unlock()
 	if data.values.Len() == 0 {
-		return nil, Status_EMPTY_LIST
+		return nil, thrift.Status_EMPTY_LIST
 	}
 
 	if numitem < 0 {
@@ -302,11 +304,11 @@ func (parts *partitionedCache) list_pop(key string, numitem int32, front bool) (
 		}
 		data.values.Remove(temp)
 	}
-	return out, Status_SUCCESS
+	return out, thrift.Status_SUCCESS
 }
 
 func (parts *partitionedCache) add_counter(counter string, ival int64, replace bool,
-	expiry int64) Status {
+	expiry int64) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(counter, parts.numpartitions)
@@ -316,19 +318,19 @@ func (parts *partitionedCache) add_counter(counter string, ival int64, replace b
 	val, ok := kvs.ccache[counter]
 	if ok {
 		if !replace {
-			return Status_KEY_EXISTS
+			return thrift.Status_KEY_EXISTS
 		} else {
 			atomic.StoreInt64(val, ival)
-			return Status_SUCCESS
+			return thrift.Status_SUCCESS
 		}
 	}
 	val = new(int64)
 	*val = ival
 	kvs.ccache[counter] = val
-	return Status_SUCCESS
+	return thrift.Status_SUCCESS
 }
 
-func (parts *partitionedCache) delete_counter(counter string) Status {
+func (parts *partitionedCache) delete_counter(counter string) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(counter, parts.numpartitions)
@@ -338,12 +340,12 @@ func (parts *partitionedCache) delete_counter(counter string) Status {
 	_, ok := kvs.ccache[counter]
 	if ok {
 		delete(kvs.ccache, counter)
-		return Status_SUCCESS
+		return thrift.Status_SUCCESS
 	}
-	return Status_KEY_NOT_EXISTS
+	return thrift.Status_KEY_NOT_EXISTS
 }
 
-func (parts *partitionedCache) get_counter_value(counter string) (Status, int64) {
+func (parts *partitionedCache) get_counter_value(counter string) (thrift.Status, int64) {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(counter, parts.numpartitions)
@@ -352,13 +354,13 @@ func (parts *partitionedCache) get_counter_value(counter string) (Status, int64)
 	defer kvs.lock.RUnlock()
 	val, ok := kvs.ccache[counter]
 	if ok {
-		return Status_SUCCESS, atomic.LoadInt64(val)
+		return thrift.Status_SUCCESS, atomic.LoadInt64(val)
 	}
-	return Status_KEY_NOT_EXISTS, 0
+	return thrift.Status_KEY_NOT_EXISTS, 0
 }
 
 func (parts *partitionedCache) increment_counter(counter string, delta int64,
-	retold bool) (Status, int64) {
+	retold bool) (thrift.Status, int64) {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(counter, parts.numpartitions)
@@ -367,22 +369,22 @@ func (parts *partitionedCache) increment_counter(counter string, delta int64,
 	defer kvs.lock.RUnlock()
 	val, ok := kvs.ccache[counter]
 	if !ok {
-		return Status_KEY_NOT_EXISTS, 0
+		return thrift.Status_KEY_NOT_EXISTS, 0
 	}
 	ret := atomic.AddInt64(val, delta)
 	if retold {
 		ret -= delta
 	}
-	return Status_SUCCESS, ret
+	return thrift.Status_SUCCESS, ret
 }
 
 func (parts *partitionedCache) decrement_counter(counter string, delta int64,
-	retold bool) (Status, int64) {
+	retold bool) (thrift.Status, int64) {
 	return parts.increment_counter(counter, -delta, retold)
 }
 
 func (parts *partitionedCache) cmpswp_counter(counter string, expected int64,
-	newValue int64) Status {
+	newValue int64) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(counter, parts.numpartitions)
@@ -391,15 +393,15 @@ func (parts *partitionedCache) cmpswp_counter(counter string, expected int64,
 	defer kvs.lock.RUnlock()
 	val, ok := kvs.ccache[counter]
 	if !ok {
-		return Status_KEY_NOT_EXISTS
+		return thrift.Status_KEY_NOT_EXISTS
 	}
 	if atomic.CompareAndSwapInt64(val, expected, newValue) {
-		return Status_SUCCESS
+		return thrift.Status_SUCCESS
 	}
-	return Status_FAILURE
+	return thrift.Status_FAILURE
 }
 
-func (parts *partitionedCache) hyperlog_create(key string, expiry int64) Status {
+func (parts *partitionedCache) hyperlog_create(key string, expiry int64) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -408,13 +410,13 @@ func (parts *partitionedCache) hyperlog_create(key string, expiry int64) Status 
 	defer hll.lock.Unlock()
 	_, ok := hll.hcache[key]
 	if ok {
-		return Status_KEY_EXISTS
+		return thrift.Status_KEY_EXISTS
 	}
 	hll.hcache[key] = newHyperLog()
-	return Status_SUCCESS
+	return thrift.Status_SUCCESS
 }
 
-func (parts *partitionedCache) hyperlog_delete(key string) Status {
+func (parts *partitionedCache) hyperlog_delete(key string) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -423,13 +425,13 @@ func (parts *partitionedCache) hyperlog_delete(key string) Status {
 	defer hll.lock.Unlock()
 	_, ok := hll.hcache[key]
 	if !ok {
-		return Status_KEY_NOT_EXISTS
+		return thrift.Status_KEY_NOT_EXISTS
 	}
 	delete(hll.hcache, key)
-	return Status_SUCCESS
+	return thrift.Status_SUCCESS
 }
 
-func (parts *partitionedCache) hyperlog_cardinality(key string) (uint64, Status) {
+func (parts *partitionedCache) hyperlog_cardinality(key string) (uint64, thrift.Status) {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -438,12 +440,12 @@ func (parts *partitionedCache) hyperlog_cardinality(key string) (uint64, Status)
 	hlog, ok := hll.hcache[key]
 	hll.lock.RUnlock()
 	if !ok {
-		return 0, Status_KEY_NOT_EXISTS
+		return 0, thrift.Status_KEY_NOT_EXISTS
 	}
-	return hlog.count_cardinality(), Status_SUCCESS
+	return hlog.count_cardinality(), thrift.Status_SUCCESS
 }
 
-func (parts *partitionedCache) hyperlog_add(key string, hashval uint32) Status {
+func (parts *partitionedCache) hyperlog_add(key string, hashval uint32) thrift.Status {
 	parts.biglock.RLock()
 	defer parts.biglock.RUnlock()
 	partition := getPartition(key, parts.numpartitions)
@@ -452,10 +454,10 @@ func (parts *partitionedCache) hyperlog_add(key string, hashval uint32) Status {
 	defer hll.lock.RUnlock()
 	hlog, ok := hll.hcache[key]
 	if !ok {
-		return Status_KEY_NOT_EXISTS
+		return thrift.Status_KEY_NOT_EXISTS
 	}
 	hlog.addhash(hashval)
-	return Status_SUCCESS
+	return thrift.Status_SUCCESS
 }
 
 func (parts *partitionedCache) dumpPartition(partno uint32, c *caches, writer io.Writer) error {
@@ -497,15 +499,15 @@ func (parts *partitionedCache) dumpPartition(partno uint32, c *caches, writer io
 	return nil
 }
 
-func (parts *partitionedCache) PersistInFile(filePath string) Status {
+func (parts *partitionedCache) PersistInFile(filePath string) thrift.Status {
 	file, err := os.Create(filePath)
 	if err != nil {
-		return Status_FAILURE
+		return thrift.Status_FAILURE
 	}
 	return parts.Persist(file)
 }
 
-func (parts *partitionedCache) Persist(file io.WriteCloser) Status {
+func (parts *partitionedCache) Persist(file io.WriteCloser) thrift.Status {
 	parts.biglock.Lock()
 	defer parts.biglock.Unlock()
 	defer file.Close()
@@ -518,7 +520,7 @@ func (parts *partitionedCache) Persist(file io.WriteCloser) Status {
 	}
 	writer.Flush()
 	file.Close()
-	return Status_SUCCESS
+	return thrift.Status_SUCCESS
 }
 
 func (parts *partitionedCache) getPMap(reader io.Reader) (map[string][]byte, error) {

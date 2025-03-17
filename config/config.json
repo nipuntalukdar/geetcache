@@ -1,0 +1,26 @@
+{
+  "myid": "id1",
+  "logs": "data/logs",
+  "sstore": "data/db",
+  "snapshot": "data/snapshot",
+  "rpcaddr": "127.0.0.1:8000",
+  "httpappdress": "127.0.0.1:6000",
+  "raftpeers": [
+    {
+      "Suffrage": 0,
+      "Address": "127.0.0.1:7000",
+      "ID": "id1"
+    },
+    {
+      "Suffrage": 0,
+      "Address": "127.0.0.1:7001",
+      "ID": "id1"
+    },
+    {
+      "Suffrage": 0,
+      "Address": "127.0.0.1:7002",
+      "ID": "id1"
+    }
+  ],
+  "numpartitions": 8192
+}
